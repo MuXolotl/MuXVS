@@ -1,0 +1,13 @@
+*.pt
+*.pth
+*.index
+
+*.ogg
+*.m4a
+*.mp3
+*.flac
+*.wav
+
+*.txt
+
+**/.ipynb_checkpoints/
