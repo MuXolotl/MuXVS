@@ -26,10 +26,7 @@ venv/
 *.ogg
 *.flac
 *.aiff
-!logs/mute/sliced_audios/mute32000.wav
-!logs/mute/sliced_audios/mute40000.wav
-!logs/mute/sliced_audios/mute48000.wav
-!logs/mute/sliced_audios_16k/mute.wav
+!**/mute/**
 
 # Прочее
 *.zip
