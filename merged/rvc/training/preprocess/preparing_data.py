@@ -16,8 +16,8 @@ import soundfile as sf
 import torch
 from tqdm import tqdm
 
+# MuXVS
 sys.path.append(os.getcwd())
-
 from rvc.lib.audio import load_audio
 from rvc.lib.rmvpe import RMVPE
 

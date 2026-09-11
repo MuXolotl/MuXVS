@@ -2,6 +2,7 @@ from typing import Optional
 
 import torch
 
+# MuXVS
 from rvc.lib.algorithm.commons import rand_slice_segments, slice_segments
 from rvc.lib.algorithm.encoders import PosteriorEncoder, TextEncoder
 from rvc.lib.algorithm.residuals import ResidualCouplingBlock

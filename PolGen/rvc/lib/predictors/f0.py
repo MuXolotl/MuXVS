@@ -5,6 +5,7 @@ import torch
 import torchcrepe
 from torchfcpe import spawn_bundled_infer_model
 
+# MuXVS
 from rvc.lib.predictors.RMVPE import RMVPEF0Predictor
 
 
