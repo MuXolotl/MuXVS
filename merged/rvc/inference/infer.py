@@ -17,7 +17,7 @@ from rvc.inference.modules.audio_upscaler import upscale
 # Определяем пути к папкам и файлам (константы)
 RVC_MODELS_DIR = os.path.join(os.getcwd(), "models", "RVC_models")
 OUTPUT_DIR = os.path.join(os.getcwd(), "output", "RVC_output")
-HUBERT_BASE_PATH = os.path.join(os.getcwd(), "assets", "models", "embedders", "hubert_base.pt")
+EMBEDDER_PATH = os.path.join(os.getcwd(), "assets", "models", "embedders", "contentvec_base.pt")
 
 # Создаем папки, если их нет
 os.makedirs(RVC_MODELS_DIR, exist_ok=True)
@@ -52,10 +52,10 @@ def load_rvc_model(rvc_model):
     return rvc_model_path, rvc_index_path
 
 
-# Загружает модель Hubert
-def load_hubert(model_path):
-    hubert = load_model(model_path).to(config.device).eval()
-    return hubert
+# Загружает семантический эмбеддер
+def load_embedder(model_path):
+    embedder = load_model(model_path).to(config.device).eval()
+    return embedder
 
 
 # Получает конвертер голоса
@@ -125,9 +125,9 @@ def rvc_infer(
 
     display_progress(0, "\n[⚙️] Запуск конвейера генерации...", True)
 
-    # Загружаем модель Hubert
-    display_progress(0.1, "Загружаем модель HuBERT...", False)
-    hubert_model = load_hubert(HUBERT_BASE_PATH)
+    # Загружаем семантический эмбеддер
+    display_progress(0.1, "Загружаем семантический эмбеддер...", False)
+    embedder_model = load_embedder(EMBEDDER_PATH)
     # Загружаем модель RVC и индекс
     display_progress(0.2, f"Загружаем модель '{rvc_model}'...", False)
     model_path, index_path = load_rvc_model(rvc_model)
@@ -148,7 +148,7 @@ def rvc_infer(
 
     display_progress(0.5, f"[🌌] Преобразуем аудио '{base_name}'...", True)
     audio_opt = vc.pipeline(
-        model=hubert_model,
+        model=embedder_model,
         net_g=net_g,
         sid=0,
         audio=audio,
@@ -180,7 +180,7 @@ def rvc_infer(
 
     # Освобождаем память
     display_progress(0.95, "Освобождаем память...", False)
-    del hubert_model, cpt, net_g, vc
+    del embedder_model, cpt, net_g, vc
     gc.collect()
     torch.cuda.empty_cache()
 

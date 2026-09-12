@@ -146,16 +146,18 @@ class RMVPEF0:
         self.sample_rate = sample_rate
         self.model_og = RMVPE(os.path.join("assets", "models", "predictors", "rmvpe.pt"), self.device, hpa=False)
         self.model_hpa = RMVPE(os.path.join("assets", "models", "predictors", "hpa-rmvpe.pt"), self.device, hpa=True)
-        
 
     def get_f0(self, audio, f0_min=50, f0_max=1100, type_rmvpe="rmvpe"):
         if type_rmvpe == "rmvpe":
             return self.model_og.infer_from_audio(audio, thred=0.03)
 
+        if type_rmvpe == "rmvpe+":
+            return self.model_og.infer_from_audio_medfilt(audio, thred=0.02, f0_min=f0_min, f0_max=f0_max)
+
         if type_rmvpe == "hpa-rmvpe":
             return self.model_hpa.infer_from_audio(audio, thred=0.03)
 
-        raise ValueError(f"Недопустимое значение: {type_rmvpe!r}")
+        raise ValueError(f"Недопустимое значение: {type_rmvpe!r}. Доступные варианты: 'rmvpe', 'rmvpe+' и 'hpa-rmvpe'.")
 
 
 class CREPEF0:

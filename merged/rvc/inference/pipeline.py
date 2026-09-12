@@ -79,7 +79,7 @@ class VC:
             model = CREPEF0(device=self.device, sample_rate=self.sample_rate, hop_size=self.window)
             f0 = model.get_f0(audio, f0_min, f0_max, p_len, ("full" if f0_method == "crepe" else "tiny"))
             del model
-        elif f0_method in ("rmvpe", "hpa-rmvpe"):
+        elif f0_method in ("rmvpe", "rmvpe+", "hpa-rmvpe"):
             model = RMVPEF0(device=self.device, sample_rate=self.sample_rate)
             f0 = model.get_f0(audio, f0_min, f0_max, f0_method)
             del model
