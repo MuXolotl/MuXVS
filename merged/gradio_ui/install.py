@@ -13,7 +13,7 @@ from rvc.inference.modules.model_manager import (
 )
 
 EMBEDDERS_DIR = os.path.join(os.getcwd(), "assets", "models", "embedders")
-HUBERT_BASE_PATH = os.path.join(EMBEDDERS_DIR, "contentvec_base.pt")
+EMBEDDER_PATH = os.path.join(EMBEDDERS_DIR, "contentvec_base.pt")
 BASE_URL = "https://huggingface.co/Politrees/RVC_resources/resolve/main/embedders/pytorch/"
 
 MODELS = [
@@ -55,11 +55,11 @@ def download_and_replace_model(model_name, custom_url, progress=gr.Progress()):
         progress(0.4, desc=f'[~] Установка модели "{model_name}"...')
         download_file(model_url, tmp_model_path)
 
-        progress(0.8, desc="[~] Удаление старой HuBERT модели...")
-        if os.path.exists(HUBERT_BASE_PATH):
-            os.remove(HUBERT_BASE_PATH)
+        progress(0.8, desc="[~] Удаление старого эмбеддера...")
+        if os.path.exists(EMBEDDER_PATH):
+            os.remove(EMBEDDER_PATH)
 
-        os.rename(tmp_model_path, HUBERT_BASE_PATH)
+        os.rename(tmp_model_path, EMBEDDER_PATH)
         return f'Модель "{model_name}" успешно установлена.'
     except Exception as e:
         return f'Ошибка при установке модели "{model_name}": {e!s}'
@@ -130,26 +130,26 @@ def files_upload(output_message):
     )
 
 
-def install_hubert_tab():
+def install_embedder_tab():
     gr.HTML(
-        "<center><h3>Не рекомендуется вносить изменения в этот раздел, если вы не проводили обучение RVC модели с использованием пользователькой HuBERT-модели.</h3></center>",
+        "<center><h3>Не рекомендуется вносить изменения в этот раздел, если вы не проводили обучение RVC модели с использованием пользовательского эмбеддера.</h3></center>",
     )
     with gr.Row(variant="panel", equal_height=True):
         with gr.Column(variant="panel"):
-            custom_url_checkbox = gr.Checkbox(label="Использовать другой HuBERT", value=False)
+            custom_url_checkbox = gr.Checkbox(label="Использовать другой эмбеддер", value=False)
             custom_url_textbox = gr.Textbox(label="URL модели", visible=False)
-            hubert_model_dropdown = gr.Dropdown(MODELS, label="Список доступных HuBERT моделей:", visible=True)
-        hubert_download_btn = gr.Button("Установить!", variant="primary")
-    hubert_output_message = gr.Text(label="Сообщение вывода", interactive=False)
+            embedder_model_dropdown = gr.Dropdown(MODELS, label="Список доступных эмбеддеров:", visible=True)
+        embedder_download_btn = gr.Button("Установить!", variant="primary")
+    embedder_output_message = gr.Text(label="Сообщение вывода", interactive=False)
 
     custom_url_checkbox.change(
         toggle_custom_url,
         inputs=custom_url_checkbox,
-        outputs=[custom_url_textbox, hubert_model_dropdown],
+        outputs=[custom_url_textbox, embedder_model_dropdown],
     )
 
-    hubert_download_btn.click(
+    embedder_download_btn.click(
         download_and_replace_model,
-        inputs=[hubert_model_dropdown, custom_url_textbox],
-        outputs=hubert_output_message,
+        inputs=[embedder_model_dropdown, custom_url_textbox],
+        outputs=embedder_output_message,
     )

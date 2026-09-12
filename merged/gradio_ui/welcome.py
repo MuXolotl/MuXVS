@@ -2,7 +2,7 @@ import gradio as gr
 
 
 def welcome_tab():
-    gr.HTML("<center><h1 style='font-size: 3em;'><b>Добро пожаловать в PolGen</b></h1></center>")
+    gr.HTML("<center><h1 style='font-size: 3em;'><b>Добро пожаловать в MuXVS</b></h1></center>")
     with gr.Row():
         with gr.Column(variant="panel"):
             gr.HTML("<center><h2><a href='https://t.me/Politrees2'>Telegram ЛС</a></h2></center>")
@@ -13,4 +13,4 @@ def welcome_tab():
 
     with gr.Column(variant="panel"):
         gr.HTML("<center><h2><a href='https://www.youtube.com/@Politrees'>YouTube</a></h2></center>")
-        gr.HTML("<center><h2><a href='https://github.com/Politrees/PolGen'>GitHub</a></h2></center>")
+        gr.HTML("<center><h2><a href='https://github.com/MuXolotl/MuXVS'>GitHub</a></h2></center>")

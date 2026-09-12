@@ -21,7 +21,6 @@ from time import time as ttime
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-from distutils.util import strtobool
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -43,6 +42,10 @@ torch.backends.cudnn.benchmark = True
 global_step = 0
 
 
+def _strtobool(val):
+    return val.lower() in ("yes", "true", "t", "y", "1")
+
+
 def get_hparams():
     parser = argparse.ArgumentParser()
     parser.add_argument("--experiment_dir", type=str, required=True)
@@ -56,8 +59,8 @@ def get_hparams():
     parser.add_argument("--pretrain_g", type=str, default=None)
     parser.add_argument("--pretrain_d", type=str, default=None)
     parser.add_argument("--gpus", type=str, default="0")
-    parser.add_argument("--save_to_zip", type=lambda x: bool(strtobool(x)), choices=[True, False], default=False)
-    parser.add_argument("--save_half", type=lambda x: bool(strtobool(x)), choices=[True, False], default=True)
+    parser.add_argument("--save_to_zip", type=_strtobool, choices=[True, False], default=False)
+    parser.add_argument("--save_half", type=_strtobool, choices=[True, False], default=True)
     args = parser.parse_args()
 
     experiment_dir = os.path.join(args.experiment_dir, args.model_name)
@@ -158,6 +161,10 @@ def main():
 
     for subproc in children:
         subproc.join()
+        # исключение в воркере до родителя не доходит, процесс может быть убит по сигналу
+        if subproc.exitcode != 0:
+            print(f"Обучение прервалось, код завершения {subproc.exitcode}", flush=True)
+            sys.exit(1)
 
     sys.exit(0)
 

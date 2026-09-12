@@ -139,7 +139,7 @@ def rvc_infer(
     base_name = os.path.splitext(os.path.basename(input_path))[0]
     if len(base_name) > 100:  # Сменить имя выходного файла, если длина исходного более 100 символов
         gr.Warning("Имя файла превышает 100 символов и будет сокращено для удобства.")
-        base_name = f"{base_name[:25]}... (Made_in_PolGen)"
+        base_name = f"{base_name[:25]}... (Made_in_MuXVS)"
     output_path = os.path.join(OUTPUT_DIR, f"{base_name}_({rvc_model}).{output_format}")
 
     # Загружаем аудиофайл
