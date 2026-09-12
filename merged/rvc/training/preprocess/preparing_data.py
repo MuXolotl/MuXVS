@@ -23,10 +23,9 @@ from rvc._library.embedders.fairseq import load_model
 from rvc._library.predictors.f0 import RMVPEF0
 
 exp_dir = str(sys.argv[1])  # Директория с данными, подготовленными скриптом `preprocess.py`
-arch_fairseq = str(sys.argv[2])  # Архитектура Fairseq / Fairseq, Fairseq2
-f0_method = str(sys.argv[3])  # Метод извлечения F0 / rmvpe, rmvpe+, hpa-rmvpe
-sample_rate = int(sys.argv[4])  # Частота дискретизации для генерации filelist.txt
-include_mutes = int(sys.argv[5])  # Количество мьют файлов на одного спикера / По умолчанию = 2
+f0_method = str(sys.argv[2])  # Метод извлечения F0 / rmvpe, rmvpe+, hpa-rmvpe
+sample_rate = int(sys.argv[3])  # Частота дискретизации для генерации filelist.txt
+include_mutes = int(sys.argv[4])  # Количество мьют файлов на одного спикера / По умолчанию = 2
 
 
 class DataPreprocessor:
@@ -46,9 +45,9 @@ class DataPreprocessor:
         self.model_rmvpe = RMVPEF0(self.device)
         self.hubert_model = self._load_hubert_model()
 
-    def _load_hubert_model(self, arch_fairseq):
+    def _load_hubert_model(self):
         """Загрузка модели HuBERT"""
-        hubert_model_path = os.path.join(os.getcwd(), "rvc", "models", "embedders", "contentvec_base.pt")
+        hubert_model_path = os.path.join(os.getcwd(), "assets", "models", "embedders", "contentvec_base.pt")
         return load_model(hubert_model_path).to(self.device).eval()
 
     def compute_f0(self, path, f0_method):

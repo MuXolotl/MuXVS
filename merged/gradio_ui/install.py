@@ -6,14 +6,14 @@ import urllib.request
 import gradio as gr
 
 # MuXVS
-from rvc.modules.model_manager import (
+from rvc.inference.modules.model_manager import (
     download_from_url,
     upload_separate_files,
     upload_zip_file,
 )
 
-EMBEDDERS_DIR = os.path.join(os.getcwd(), "rvc", "models", "embedders")
-HUBERT_BASE_PATH = os.path.join(EMBEDDERS_DIR, "hubert_base.pt")
+EMBEDDERS_DIR = os.path.join(os.getcwd(), "assets", "models", "embedders")
+HUBERT_BASE_PATH = os.path.join(EMBEDDERS_DIR, "contentvec_base.pt")
 BASE_URL = "https://huggingface.co/Politrees/RVC_resources/resolve/main/embedders/pytorch/"
 
 MODELS = [
@@ -29,7 +29,7 @@ MODELS = [
 def toggle_custom_url(checkbox_value):
     if checkbox_value:
         return gr.update(visible=True, value=""), gr.update(visible=False, value=None)
-    return gr.update(visible=False, value=""), gr.update(visible=True, value="hubert_base.pt")
+    return gr.update(visible=False, value=""), gr.update(visible=True, value="contentvec_base.pt")
 
 
 def download_file(url, destination):

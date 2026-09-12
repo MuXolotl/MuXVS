@@ -14,7 +14,7 @@ from gradio_ui.components.helpers import (
     update_visible,
 )
 from gradio_ui.components.settings import settings
-from rvc.infer.infer import rvc_edgetts_infer, rvc_infer
+from rvc.inference.infer import rvc_edgetts_infer, rvc_infer
 
 
 def inference_tab():
