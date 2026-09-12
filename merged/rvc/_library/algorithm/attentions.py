@@ -3,7 +3,7 @@ import math
 import torch
 
 # MuXVS
-from rvc.lib.algorithm.commons import convert_pad_shape
+from rvc._library.algorithm.commons import convert_pad_shape
 
 
 class MultiHeadAttention(torch.nn.Module):

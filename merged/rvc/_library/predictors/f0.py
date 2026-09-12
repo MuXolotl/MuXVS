@@ -6,7 +6,7 @@ import torchcrepe
 from torchfcpe import spawn_bundled_infer_model
 
 # MuXVS
-from rvc.lib.predictors.RMVPE import RMVPEF0Predictor
+from rvc._library.predictors.rmvpe import RMVPE
 
 
 def median_interp_pitch(f0):
@@ -140,23 +140,25 @@ class AutoTune:
         return output_f0
 
 
-class RMVPE:
+class RMVPEF0:
     def __init__(self, device, sample_rate=16000):
         self.device = device
         self.sample_rate = sample_rate
-        self.model = RMVPEF0Predictor(os.path.join("rvc", "models", "predictors", "rmvpe.pt"), device=self.device)
+        self.model_og = RMVPE(os.path.join("assets", "models", "predictors", "rmvpe.pt"), self.device, hpa=False)
+        self.model_hpa = RMVPE(os.path.join("assets", "models", "predictors", "hpa-rmvpe.pt"), self.device, hpa=True)
+        
 
     def get_f0(self, audio, f0_min=50, f0_max=1100, type_rmvpe="rmvpe"):
         if type_rmvpe == "rmvpe":
-            return self.model.infer_from_audio(audio, thred=0.03)
+            return self.model_og.infer_from_audio(audio, thred=0.03)
 
-        if type_rmvpe == "rmvpe+":
-            return self.model.infer_from_audio_modified(audio, thred=0.02, f0_min=f0_min, f0_max=f0_max)
+        if type_rmvpe == "hpa-rmvpe":
+            return self.model_hpa.infer_from_audio(audio, thred=0.03)
 
         raise ValueError(f"Недопустимое значение: {type_rmvpe!r}")
 
 
-class CREPE:
+class CREPEF0:
     def __init__(self, device, sample_rate=16000, hop_size=160):
         self.device = device
         self.sample_rate = sample_rate
@@ -190,7 +192,7 @@ class CREPE:
         return f0
 
 
-class FCPE:
+class FCPEF0:
     def __init__(self, device, sample_rate=16000, hop_size=160):
         self.device = device
         self.sample_rate = sample_rate

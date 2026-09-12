@@ -1,9 +1,9 @@
 import torch
 
 # MuXVS
-from rvc.lib.algorithm.commons import rand_slice_segments, slice_segments
-from rvc.lib.algorithm.encoders import PosteriorEncoder, TextEncoder
-from rvc.lib.algorithm.residuals import ResidualCouplingBlock
+from rvc._library.algorithm.commons import rand_slice_segments, slice_segments
+from rvc._library.algorithm.encoders import PosteriorEncoder, TextEncoder
+from rvc._library.algorithm.residuals import ResidualCouplingBlock
 
 
 class Synthesizer(torch.nn.Module):
@@ -80,7 +80,7 @@ class Synthesizer(torch.nn.Module):
 
         if use_f0:
             if vocoder == "MRF HiFi-GAN":
-                from rvc.lib.algorithm.generators.hifigan_mrf import HiFiGANMRFGenerator
+                from rvc._library.algorithm.generators.hifigan_mrf import HiFiGANMRFGenerator
                 self.dec = HiFiGANMRFGenerator(
                     in_channel=inter_channels,
                     upsample_initial_channel=upsample_initial_channel,
@@ -94,7 +94,7 @@ class Synthesizer(torch.nn.Module):
                     checkpointing=checkpointing,
                 )
             elif vocoder == "RefineGAN":
-                from rvc.lib.algorithm.generators.refinegan import RefineGANGenerator
+                from rvc._library.algorithm.generators.refinegan import RefineGANGenerator
                 self.dec = RefineGANGenerator(
                     sample_rate=sr,
                     downsample_rates=upsample_rates[::-1],
@@ -104,7 +104,7 @@ class Synthesizer(torch.nn.Module):
                     checkpointing=checkpointing,
                 )
             else:
-                from rvc.lib.algorithm.generators.hifigan_nsf import HiFiGANNSFGenerator
+                from rvc._library.algorithm.generators.hifigan_nsf import HiFiGANNSFGenerator
                 self.dec = HiFiGANNSFGenerator(
                     inter_channels,
                     resblock_kernel_sizes,
@@ -124,7 +124,7 @@ class Synthesizer(torch.nn.Module):
                 print("RefineGAN does not support training without pitch guidance.")
                 self.dec = None
             else:
-                from rvc.lib.algorithm.generators.hifigan import HiFiGANGenerator
+                from rvc._library.algorithm.generators.hifigan import HiFiGANGenerator
                 self.dec = HiFiGANGenerator(
                     inter_channels,
                     resblock_kernel_sizes,

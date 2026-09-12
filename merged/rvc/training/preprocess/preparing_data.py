@@ -18,8 +18,9 @@ from tqdm import tqdm
 
 # MuXVS
 sys.path.append(os.getcwd())
-from rvc.lib.audio import load_audio
-from rvc.lib.rmvpe import RMVPE
+from rvc._library.audio import load_audio
+from rvc._library.embedders.fairseq import load_model
+from rvc._library.predictors.f0 import RMVPEF0
 
 exp_dir = str(sys.argv[1])  # Директория с данными, подготовленными скриптом `preprocess.py`
 arch_fairseq = str(sys.argv[2])  # Архитектура Fairseq / Fairseq, Fairseq2
@@ -42,37 +43,18 @@ class DataPreprocessor:
         self.f0_mel_max = 1127 * np.log(1 + self.f0_max / 700)
 
         # Инициализация моделей
-        self.model_rmvpe = RMVPE(os.path.join(os.getcwd(), "rvc", "models", "predictors", "rmvpe.pt"), self.device, hpa=False)
-        self.model_hpa_rmvpe = RMVPE(os.path.join(os.getcwd(), "rvc", "models", "predictors", "hpa-rmvpe.pt"), self.device, hpa=True)
-        self.hubert_model = self._load_hubert_model(arch_fairseq)
+        self.model_rmvpe = RMVPEF0(self.device)
+        self.hubert_model = self._load_hubert_model()
 
     def _load_hubert_model(self, arch_fairseq):
         """Загрузка модели HuBERT"""
         hubert_model_path = os.path.join(os.getcwd(), "rvc", "models", "embedders", "contentvec_base.pt")
-        if arch_fairseq == "Fairseq":
-            from fairseq.checkpoint_utils import load_model_ensemble_and_task
-            from fairseq.data.dictionary import Dictionary
-
-            torch.serialization.add_safe_globals([Dictionary])
-            models, _, _ = load_model_ensemble_and_task([hubert_model_path], suffix="")
-            return models[0].to(self.device).eval()
-        if arch_fairseq == "Fairseq2":
-            from rvc.lib.fairseq import load_model
-
-            model = load_model(hubert_model_path)
-            return model.to(self.device).eval()
-        raise ValueError("Неизвестное значение для 'arch_fairseq'! Доступные варианты: 'Fairseq', 'Fairseq2'.")
+        return load_model(hubert_model_path).to(self.device).eval()
 
     def compute_f0(self, path, f0_method):
         """Вычисление F0"""
         audio = load_audio(path, self.sample_rate)
-        if f0_method == "rmvpe":
-            return self.model_rmvpe.infer_from_audio(audio, 0.03)
-        if f0_method == "rmvpe+":
-            return self.model_rmvpe.infer_from_audio_medfilt(audio, 0.02)
-        if f0_method == "hpa-rmvpe":
-            return self.model_hpa_rmvpe.infer_from_audio(audio, 0.03)
-        raise ValueError("Неизвестное значение для 'f0_method'! Доступные варианты: 'rmvpe', 'rmvpe+' и 'hpa-rmvpe'.")
+        return self.model_rmvpe.get_f0(audio, self.f0_min, self.f0_max, f0_method)
 
     def coarse_f0(self, f0):
         """Квантование F0"""
@@ -167,7 +149,7 @@ class DataPreprocessor:
 
 
 def generate_filelist(model_path: str, sample_rate: int, include_mutes: int = 2):
-    mute_base_path = os.path.join(os.getcwd(), "logs", "mute")
+    mute_base_path = os.path.join(os.getcwd(), "rvc", "training", "mute")
 
     gt_wavs_dir = os.path.join(model_path, "data", "sliced_audios")
     feature_dir = os.path.join(model_path, "data", "features")

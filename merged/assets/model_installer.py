@@ -7,9 +7,9 @@ PREDICTORS = "https://huggingface.co/Politrees/RVC_resources/resolve/main/predic
 EMBEDDERS = "https://huggingface.co/Politrees/RVC_resources/resolve/main/embedders/pytorch/"
 FLASH_SR = "https://huggingface.co/datasets/jakeoneijk/FlashSR_weights/resolve/main/"
 
-PREDICTORS_DIR = os.path.join(os.getcwd(), "rvc", "models", "predictors")
-EMBEDDERS_DIR = os.path.join(os.getcwd(), "rvc", "models", "embedders")
-FLASH_SR_DIR = os.path.join(os.getcwd(), "rvc", "models", "FlashSR")
+PREDICTORS_DIR = os.path.join(os.getcwd(), "assets", "models", "predictors")
+EMBEDDERS_DIR = os.path.join(os.getcwd(), "assets", "models", "embedders")
+FLASH_SR_DIR = os.path.join(os.getcwd(), "assets", "models", "FlashSR")
 
 # Создаем папки, если их нет
 os.makedirs(PREDICTORS_DIR, exist_ok=True)
@@ -34,19 +34,26 @@ def dl_model(link, model_name, dir_name):
             unit="iB",
             unit_scale=True,
             unit_divisor=1024,
-        ) as pbar,
+        ) as bar,
     ):
         for chunk in r.iter_content(chunk_size=8192):
             f.write(chunk)
-            pbar.update(len(chunk))
+            bar.update(len(chunk))
 
 
 def check_and_install_models(include_flashsr=False):
     try:
-        for model in ["rmvpe.pt"]:
+        for model in ["rmvpe.pt", "hpa-rmvpe.pt"]:
             dl_model(PREDICTORS, model, PREDICTORS_DIR)
 
-        for model in ["hubert_base.pt"]:
+        for model in [
+            # "hubert_base.pt",
+            "contentvec_base.pt",
+            # "korean_hubert_base.pt",
+            # "chinese_hubert_base.pt",
+            # "japanese_hubert_base.pt",
+            # "portuguese_hubert_base.pt"
+        ]:
             dl_model(EMBEDDERS, model, EMBEDDERS_DIR)
 
         if include_flashsr:

@@ -4,8 +4,8 @@ from torch.nn.utils.parametrizations import weight_norm
 from torch.utils.checkpoint import checkpoint
 
 # MuXVS
-from rvc.lib.algorithm.commons import get_padding
-from rvc.lib.algorithm.residuals import LRELU_SLOPE
+from rvc._library.algorithm.commons import get_padding
+from rvc._library.algorithm.residuals import LRELU_SLOPE
 
 
 class MultiPeriodDiscriminator(torch.nn.Module):

@@ -14,7 +14,6 @@ warnings.filterwarnings("ignore")
 import argparse
 import datetime
 import json
-import pathlib
 from collections import defaultdict
 from random import randint
 from time import time as ttime
@@ -29,44 +28,19 @@ from torch.utils.tensorboard import SummaryWriter
 
 # MuXVS
 sys.path.append(os.path.join(os.getcwd()))
-from rvc.lib.algorithm.commons import grad_norm, slice_segments
-from rvc.lib.algorithm.discriminators import MultiPeriodDiscriminator
-from rvc.lib.algorithm.synthesizers import Synthesizer
-from rvc.train.losses import discriminator_loss, feature_loss, generator_loss, kl_loss
-from rvc.train.mel_processing import MultiScaleMelSpectrogramLoss, mel_spectrogram_torch, spec_to_mel_torch
-from rvc.train.utils.data_utils import DistributedBucketSampler, TextAudioCollateMultiNSFsid, TextAudioLoaderMultiNSFsid
-from rvc.train.utils.train_utils import HParams, extract_model, load_checkpoint, save_checkpoint
-from rvc.train.visualization import f0_error_cents, mel_spectrogram_similarity, plot_spectrogram_to_numpy
+from rvc._library.algorithm.commons import grad_norm, slice_segments
+from rvc._library.algorithm.discriminators import MultiPeriodDiscriminator
+from rvc._library.algorithm.synthesizers import Synthesizer
+from rvc.training.losses import discriminator_loss, feature_loss, generator_loss, kl_loss
+from rvc.training.mel_processing import MultiScaleMelSpectrogramLoss, mel_spectrogram_torch, spec_to_mel_torch
+from rvc.training.utils.data_utils import DistributedBucketSampler, TextAudioCollateMultiNSFsid, TextAudioLoaderMultiNSFsid
+from rvc.training.utils.train_utils import HParams, extract_model, load_checkpoint, save_checkpoint
+from rvc.training.visualization import f0_error_cents, mel_spectrogram_similarity, plot_spectrogram_to_numpy
 
 torch.backends.cudnn.deterministic = False
 torch.backends.cudnn.benchmark = True
 
 global_step = 0
-
-
-class MetricsAccumulator:
-    """Аккумулятор метрик для вычисления средних значений за эпоху."""
-
-    def __init__(self):
-        self.sums = defaultdict(float)
-        self.count = 0
-
-    def update(self, **kwargs):
-        self.count += 1
-        for k, v in kwargs.items():
-            self.sums[k] += v.item() if hasattr(v, "item") else v
-
-    def average(self):
-        return {k: v / self.count for k, v in self.sums.items()} if self.count else {}
-
-
-def generate_config(config_save_path, sample_rate, vocoder):
-    config_path = os.path.join("rvc", "configs", f"{sample_rate}.json")
-    if not pathlib.Path(config_save_path).exists():
-        with open(config_save_path, "w", encoding="utf-8") as f, open(config_path, encoding="utf-8") as config_file:
-            config_data = json.load(config_file)
-            config_data["model"]["vocoder"] = vocoder
-            json.dump(config_data, f, ensure_ascii=False, indent=2)
 
 
 def get_hparams():
@@ -91,6 +65,7 @@ def get_hparams():
 
     # Генерация файла конфигурации
     if not os.path.exists(config_save_path):
+        from rvc._library.config import generate_config
         generate_config(config_save_path, args.sample_rate, args.vocoder)
 
     # Загрузка файла конфигурации
@@ -140,6 +115,22 @@ class EpochRecorder:
         elapsed_time = round(now_time - self.last_time, 1)
         self.last_time = now_time
         return f"[{datetime.timedelta(seconds=int(elapsed_time))!s}]"
+
+
+class MetricsAccumulator:
+    """Аккумулятор метрик для вычисления средних значений за эпоху."""
+
+    def __init__(self):
+        self.sums = defaultdict(float)
+        self.count = 0
+
+    def update(self, **kwargs):
+        self.count += 1
+        for k, v in kwargs.items():
+            self.sums[k] += v.item() if hasattr(v, "item") else v
+
+    def average(self):
+        return {k: v / self.count for k, v in self.sums.items()} if self.count else {}
 
 
 def main():
@@ -214,6 +205,7 @@ def run(hps, rank, n_gpus, device, device_id):
             hps.data.filter_length // 2 + 1,
             hps.train.segment_size // hps.data.hop_length,
             **hps.model,
+            use_f0=True,
             sr=hps.data.sample_rate,
             checkpointing=False,
             randomized=True,
@@ -228,12 +220,12 @@ def run(hps, rank, n_gpus, device, device_id):
             net_d = net_d.to(device)
 
         if hps.optimizer == "AdaBelief":
-            from rvc.train.utils.optimizers.AdaBelief import AdaBelief
+            from rvc._library.optimizers.AdaBelief import AdaBelief
 
             optim_g = AdaBelief(net_g.parameters(), lr=hps.train.learning_rate, betas=hps.train.betas, eps=1e-8)
             optim_d = AdaBelief(net_d.parameters(), lr=hps.train.learning_rate, betas=hps.train.betas, eps=1e-8)
         elif hps.optimizer == "PolOpt":
-            from rvc.train.utils.optimizers.PolOpt import PolOpt
+            from rvc._library.optimizers.PolOpt import PolOpt
 
             optim_g = PolOpt(
                 net_g.parameters(), lr=hps.train.learning_rate, betas=(0.8, 0.99), eps=1e-7, weight_decay=0.01, max_step_clip=1.0
@@ -429,8 +421,8 @@ def train_and_evaluate(hps, rank, epoch, nets, optims, train_loader, writer_eval
 
         scalar_dict = {
             **avg,
-            "metrics/mel_sim": mel_similarity,
-            "metrics/f0_error_cents": f0_error,
+            "eval/mel_sim": mel_similarity,
+            "eval/f0_error_cents": f0_error,
             "Learning Rate/G": optim_g.param_groups[0]["lr"],
             "Learning Rate/D": optim_d.param_groups[0]["lr"],
         }

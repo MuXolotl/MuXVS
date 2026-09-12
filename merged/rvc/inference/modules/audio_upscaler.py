@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-FLASH_SR_DIR = os.path.join(os.getcwd(), "rvc", "models", "FlashSR")
+FLASH_SR_DIR = os.path.join(os.getcwd(), "assets", "models", "FlashSR")
 student_ldm_ckpt_path = os.path.join(FLASH_SR_DIR, "student_ldm.pth")
 sr_vocoder_ckpt_path = os.path.join(FLASH_SR_DIR, "sr_vocoder.pth")
 vae_ckpt_path = os.path.join(FLASH_SR_DIR, "vae.pth")

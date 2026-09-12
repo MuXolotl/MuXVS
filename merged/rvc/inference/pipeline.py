@@ -9,7 +9,7 @@ from scipy import signal
 from tqdm import tqdm
 
 # MuXVS
-from rvc.lib.predictors.f0 import CREPE, FCPE, RMVPE, AutoTune, calc_pitch_shift
+from rvc._library.predictors.f0 import CREPEF0, FCPEF0, RMVPEF0, AutoTune, calc_pitch_shift
 
 # Фильтр Баттерворта для высоких частот
 bh, ah = signal.butter(N=5, Wn=48, btype="high", fs=16000)
@@ -76,15 +76,15 @@ class VC:
         f0_mel_max = 1127 * np.log(1 + f0_max / 700)
 
         if f0_method in ("crepe", "crepe-tiny"):
-            model = CREPE(device=self.device, sample_rate=self.sample_rate, hop_size=self.window)
+            model = CREPEF0(device=self.device, sample_rate=self.sample_rate, hop_size=self.window)
             f0 = model.get_f0(audio, f0_min, f0_max, p_len, ("full" if f0_method == "crepe" else "tiny"))
             del model
-        elif f0_method in ("rmvpe", "rmvpe+"):
-            model = RMVPE(device=self.device, sample_rate=self.sample_rate)
+        elif f0_method in ("rmvpe", "hpa-rmvpe"):
+            model = RMVPEF0(device=self.device, sample_rate=self.sample_rate)
             f0 = model.get_f0(audio, f0_min, f0_max, f0_method)
             del model
         elif f0_method == "fcpe":
-            model = FCPE(device=self.device, sample_rate=self.sample_rate, hop_size=self.window)
+            model = FCPEF0(device=self.device, sample_rate=self.sample_rate, hop_size=self.window)
             f0 = model.get_f0(audio, f0_min, f0_max, p_len)
             del model
 

@@ -11,7 +11,7 @@ warnings.filterwarnings("ignore")  # Disable all warnings
 
 # MuXVS
 from assets.model_installer import check_and_install_models
-from rvc.infer.infer import rvc_edgetts_infer, rvc_infer
+from rvc.inference.infer import rvc_edgetts_infer, rvc_infer
 
 
 def strtobool(val: str) -> bool:

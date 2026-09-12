@@ -11,8 +11,8 @@ from tqdm import tqdm
 
 # MuXVS
 sys.path.append(os.getcwd())
-from rvc.lib.audio import load_audio
-from rvc.train.preprocess.slicer import Slicer
+from rvc._library.audio import load_audio
+from rvc.training.preprocess.slicer import Slicer
 
 # Парсинг аргументов командной строки
 exp_dir = sys.argv[1]  # Директория для сохранения результатов

@@ -6,7 +6,7 @@ import torch
 import torch.utils.data
 
 # MuXVS
-from rvc.train.mel_processing import spectrogram_torch
+from rvc.training.mel_processing import spectrogram_torch
 
 
 def load_wav_to_torch(full_path):

@@ -7,17 +7,17 @@ import gradio as gr
 import torch
 
 # MuXVS
-from rvc.infer.config import Config
-from rvc.infer.pipeline import VC
-from rvc.lib.algorithm.synthesizers import Synthesizer
-from rvc.lib.fairseq import load_model
-from rvc.lib.my_utils import load_audio, save_audio
-from rvc.modules.audio_upscaler import upscale
+from rvc._library.config import Config
+from rvc._library.algorithm.synthesizers import Synthesizer
+from rvc._library.embedders.fairseq import load_model
+from rvc._library.audio import load_audio, save_audio
+from rvc.inference.pipeline import VC
+from rvc.inference.modules.audio_upscaler import upscale
 
 # Определяем пути к папкам и файлам (константы)
 RVC_MODELS_DIR = os.path.join(os.getcwd(), "models", "RVC_models")
 OUTPUT_DIR = os.path.join(os.getcwd(), "output", "RVC_output")
-HUBERT_BASE_PATH = os.path.join(os.getcwd(), "rvc", "models", "embedders", "hubert_base.pt")
+HUBERT_BASE_PATH = os.path.join(os.getcwd(), "assets", "models", "embedders", "hubert_base.pt")
 
 # Создаем папки, если их нет
 os.makedirs(RVC_MODELS_DIR, exist_ok=True)

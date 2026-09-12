@@ -1,3 +1,7 @@
+import os
+import json
+import pathlib
+
 import torch
 
 
@@ -36,3 +40,12 @@ class Config:
             return (1, 5, 30, 32)
         # Параметры по умолчанию
         return (1, 6, 38, 41)
+
+
+def generate_config(config_save_path, sample_rate, vocoder):
+    config_path = os.path.join("rvc", "training", "configs", f"{sample_rate}.json")
+    if not pathlib.Path(config_save_path).exists():
+        with open(config_save_path, "w", encoding="utf-8") as f, open(config_path, encoding="utf-8") as config_file:
+            config_data = json.load(config_file)
+            config_data["model"]["vocoder"] = vocoder
+            json.dump(config_data, f, ensure_ascii=False, indent=2)

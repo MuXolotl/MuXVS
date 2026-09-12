@@ -1,7 +1,7 @@
 import torch
 
 # MuXVS
-from rvc.lib.algorithm.commons import fused_add_tanh_sigmoid_multiply
+from rvc._library.algorithm.commons import fused_add_tanh_sigmoid_multiply
 
 
 class WaveNet(torch.nn.Module):
