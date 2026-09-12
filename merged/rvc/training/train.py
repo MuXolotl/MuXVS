@@ -43,7 +43,7 @@ global_step = 0
 
 
 def _strtobool(val):
-    return val.lower() in ("yes", "true", "t", "y", "1")
+    return val.lower() in ("yes", "true", "t", "y", "on", "1")
 
 
 def get_hparams():
