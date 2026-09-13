@@ -6,12 +6,12 @@ import edge_tts
 import gradio as gr
 import torch
 
-from rvc._library.config import Config
 from rvc._library.algorithm.synthesizers import Synthesizer
-from rvc._library.embedders.fairseq import load_model
 from rvc._library.audio import load_audio, save_audio
-from rvc.inference.pipeline import VC
+from rvc._library.config import Config
+from rvc._library.embedders.fairseq import load_model
 from rvc.inference.modules.audio_upscaler import upscale
+from rvc.inference.pipeline import VC
 
 # Определяем пути к папкам и файлам (константы)
 RVC_MODELS_DIR = os.path.join(os.getcwd(), "models", "RVC_models")
@@ -68,13 +68,11 @@ def get_vc(model_path):
     model_name = os.path.basename(model_path)
     if cpt.get("version") != "v2":
         raise ValueError(
-            f"Модель '{model_name}' не v2 (version={cpt.get('version')!r}). "
-            "MuXVS поддерживает только v2-модели."
+            f"Модель '{model_name}' не v2 (version={cpt.get('version')!r}). MuXVS поддерживает только v2-модели.",
         )
     if not cpt.get("f0", 1):
         raise ValueError(
-            f"Модель '{model_name}' обучена без питча (f0=False). "
-            "MuXVS поддерживает только v2-модели с питчем."
+            f"Модель '{model_name}' обучена без питча (f0=False). MuXVS поддерживает только v2-модели с питчем.",
         )
 
     # Извлекаем параметры модели

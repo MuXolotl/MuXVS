@@ -60,7 +60,10 @@ try:
 
         batch_size_add = 8192
         for i in tqdm(
-            range(0, big_npy.shape[0], batch_size_add), desc="Добавление векторов в индекс", bar_format="{desc}: {n}/{total}", ncols=80
+            range(0, big_npy.shape[0], batch_size_add),
+            desc="Добавление векторов в индекс",
+            bar_format="{desc}: {n}/{total}",
+            ncols=80,
         ):
             index_added.add(big_npy[i : i + batch_size_add])
 

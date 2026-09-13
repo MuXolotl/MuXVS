@@ -341,7 +341,7 @@ class HyperACE(nn.Module):
         self.c_l = int(c_mid * c_l)
         self.c_s = c_mid - self.c_h - self.c_l
         self.high_order_branch = nn.ModuleList(
-            [C3AH(self.c_h, self.c_h, num_hyperedges=num_hyperedges, num_heads=num_heads, e=1.0) for _ in range(k)]
+            [C3AH(self.c_h, self.c_h, num_hyperedges=num_hyperedges, num_heads=num_heads, e=1.0) for _ in range(k)],
         )
         self.high_order_fuse = Conv(self.c_h * k, self.c_h, 1, 1)
         self.low_order_branch = nn.Sequential(*[DS_C3k(self.c_l, self.c_l, n=1, k=3, e=1.0) for _ in range(l)])
