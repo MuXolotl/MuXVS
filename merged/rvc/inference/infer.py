@@ -65,17 +65,26 @@ def get_vc(model_path):
     if "config" not in cpt or "weight" not in cpt:
         raise ValueError(f"Некорректный формат модели {model_path}. Используйте модель RVC.")
 
+    # MuXVS поддерживает только v2-модели с питчем
+    model_name = os.path.basename(model_path)
+    if cpt.get("version") != "v2":
+        raise ValueError(
+            f"Модель '{model_name}' не v2 (version={cpt.get('version')!r}). "
+            "MuXVS поддерживает только v2-модели."
+        )
+    if not cpt.get("f0", 1):
+        raise ValueError(
+            f"Модель '{model_name}' обучена без питча (f0=False). "
+            "MuXVS поддерживает только v2-модели с питчем."
+        )
+
     # Извлекаем параметры модели
     tgt_sr = cpt["config"][-1]
     cpt["config"][-3] = cpt["weight"]["emb_g.weight"].shape[0]
-
-    use_f0 = cpt.get("f0", 1)
-    version = cpt.get("version", "v1")
     vocoder = cpt.get("vocoder", "HiFi-GAN")
-    input_dim = 768 if version == "v2" else 256
 
     # Инициализируем синтезатор
-    net_g = Synthesizer(*cpt["config"], use_f0=use_f0, text_enc_hidden_dim=input_dim, vocoder=vocoder)
+    net_g = Synthesizer(*cpt["config"], text_enc_hidden_dim=768, vocoder=vocoder)
 
     # Удаляем ненужный слой
     del net_g.enc_q
@@ -84,7 +93,7 @@ def get_vc(model_path):
 
     # Инициализируем объект конвертера голоса
     vc = VC(tgt_sr, config)
-    return cpt, version, net_g, tgt_sr, vc, use_f0
+    return cpt, net_g, tgt_sr, vc
 
 
 # Синтезирует текст в речь с использованием edge_tts.
@@ -133,7 +142,7 @@ def rvc_infer(
     model_path, index_path = load_rvc_model(rvc_model)
     # Получаем конвертер голоса
     display_progress(0.3, "Получаем конвертер голоса...", False)
-    cpt, version, net_g, tgt_sr, vc, use_f0 = get_vc(model_path)
+    cpt, net_g, tgt_sr, vc = get_vc(model_path)
 
     # Построение имени выходного файла
     base_name = os.path.splitext(os.path.basename(input_path))[0]
@@ -158,9 +167,7 @@ def rvc_infer(
         f0_method=f0_method,
         file_index=index_path,
         index_rate=index_rate,
-        pitch_guidance=use_f0,
         volume_envelope=volume_envelope,
-        version=version,
         protect=protect,
         autopitch=autopitch,
         autopitch_threshold=autopitch_threshold,

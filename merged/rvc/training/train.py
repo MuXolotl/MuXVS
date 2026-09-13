@@ -212,7 +212,6 @@ def run(hps, rank, n_gpus, device, device_id):
             hps.data.filter_length // 2 + 1,
             hps.train.segment_size // hps.data.hop_length,
             **hps.model,
-            use_f0=True,
             sr=hps.data.sample_rate,
             checkpointing=False,
             randomized=True,

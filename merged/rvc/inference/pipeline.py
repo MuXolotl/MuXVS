@@ -120,7 +120,6 @@ class VC:
         index,
         big_npy,
         index_rate,
-        version,
         protect,
     ):
         """Преобразует аудио с использованием модели."""
@@ -134,14 +133,13 @@ class VC:
         inputs = {
             "source": feats.to(self.device),
             "padding_mask": padding_mask,
-            "output_layer": 9 if version == "v1" else 12,
+            "output_layer": 12,
         }
 
         with torch.no_grad():
-            logits = model.extract_features(**inputs)
-            feats = model.final_proj(logits[0]) if version == "v1" else logits[0]
+            feats = model.extract_features(**inputs)[0]
 
-        if protect < 0.5 and pitch is not None and pitchf is not None:
+        if protect < 0.5:
             feats0 = feats.clone()
 
         if index is not None and big_npy is not None and index_rate != 0:
@@ -153,17 +151,16 @@ class VC:
             feats = torch.from_numpy(npy).unsqueeze(0).to(self.device) * index_rate + (1 - index_rate) * feats
 
         feats = F.interpolate(feats.permute(0, 2, 1), scale_factor=2).permute(0, 2, 1)
-        if protect < 0.5 and pitch is not None and pitchf is not None:
+        if protect < 0.5:
             feats0 = F.interpolate(feats0.permute(0, 2, 1), scale_factor=2).permute(0, 2, 1)
 
         p_len = audio0.shape[0] // self.window
         if feats.shape[1] < p_len:
             p_len = feats.shape[1]
-            if pitch is not None and pitchf is not None:
-                pitch = pitch[:, :p_len]
-                pitchf = pitchf[:, :p_len]
+            pitch = pitch[:, :p_len]
+            pitchf = pitchf[:, :p_len]
 
-        if protect < 0.5 and pitch is not None and pitchf is not None:
+        if protect < 0.5:
             pitchff = pitchf.clone()
             pitchff[pitchf > 0] = 1
             pitchff[pitchf < 1] = protect
@@ -173,16 +170,15 @@ class VC:
 
         p_len = torch.tensor([p_len], device=self.device).long()
         with torch.no_grad():
-            hasp = pitch is not None and pitchf is not None
-            arg = (feats.float(), p_len, pitch, pitchf.float(), sid) if hasp else (feats.float(), p_len, sid)
-            audio1 = (net_g.infer(*arg)[0][0, 0]).data.cpu().float().numpy()
-            del hasp, arg
+            audio1 = (net_g.infer(feats.float(), p_len, pitch, pitchf, sid)[0][0, 0]).data.cpu().float().numpy()
 
-        if protect < 0.5 and pitch is not None and pitchf is not None:
+        if protect < 0.5:
             del feats0
+
         del feats, padding_mask
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+
         return audio1
 
     def pipeline(
@@ -197,9 +193,7 @@ class VC:
         f0_method,
         file_index,
         index_rate,
-        pitch_guidance,
         volume_envelope,
-        version,
         protect,
         autopitch,
         autopitch_threshold,
@@ -239,37 +233,35 @@ class VC:
         p_len = audio_pad.shape[0] // self.window
         sid = torch.tensor(sid, device=self.device).unsqueeze(0).long()
 
-        pitch_tensor = pitchf_tensor = None
-        if pitch_guidance:
-            pitch, pitchf = self.get_f0(
-                audio_pad,
-                p_len,
-                pitch,
-                f0_min,
-                f0_max,
-                f0_method,
-                autopitch,
-                autopitch_threshold,
-                autotune,
-                autotune_tonic,
-                autotune_scale,
-                autotune_strength,
-            )
-            pitch = pitch[:p_len]
-            pitchf = pitchf[:p_len]
+        pitch, pitchf = self.get_f0(
+            audio_pad,
+            p_len,
+            pitch,
+            f0_min,
+            f0_max,
+            f0_method,
+            autopitch,
+            autopitch_threshold,
+            autotune,
+            autotune_tonic,
+            autotune_scale,
+            autotune_strength,
+        )
+        pitch = pitch[:p_len]
+        pitchf = pitchf[:p_len]
 
-            if self.device == "mps":
-                pitchf = pitchf.astype(np.float32)
+        if self.device == "mps":
+            pitchf = pitchf.astype(np.float32)
 
-            pitch_tensor = torch.tensor(pitch, device=self.device).unsqueeze(0).long()
-            pitchf_tensor = torch.tensor(pitchf, device=self.device).unsqueeze(0).float()
+        pitch_tensor = torch.tensor(pitch, device=self.device).unsqueeze(0).long()
+        pitchf_tensor = torch.tensor(pitchf, device=self.device).unsqueeze(0).float()
 
         for t in tqdm(opt_ts, desc="Конвертация"):
             t = t // self.window * self.window
 
             audio_segment = audio_pad[s : t + self.t_pad2 + self.window]
-            pitch_segment = pitch_tensor[:, s // self.window : (t + self.t_pad2) // self.window] if pitch_guidance else None
-            pitchf_segment = pitchf_tensor[:, s // self.window : (t + self.t_pad2) // self.window] if pitch_guidance else None
+            pitch_segment = pitch_tensor[:, s // self.window : (t + self.t_pad2) // self.window]
+            pitchf_segment = pitchf_tensor[:, s // self.window : (t + self.t_pad2) // self.window]
 
             audio_opt.append(
                 self.vc(
@@ -282,14 +274,13 @@ class VC:
                     index,
                     big_npy,
                     index_rate,
-                    version,
                     protect,
                 )[self.t_pad_tgt : -self.t_pad_tgt],
             )
             s = t
 
-        pitch_segment = pitch_tensor[:, t // self.window :] if pitch_guidance and t is not None else pitch_tensor
-        pitchf_segment = pitchf_tensor[:, t // self.window :] if pitch_guidance and t is not None else pitchf_tensor
+        pitch_segment = pitch_tensor[:, t // self.window :] if t is not None else pitch_tensor
+        pitchf_segment = pitchf_tensor[:, t // self.window :] if t is not None else pitchf_tensor
 
         audio_opt.append(
             self.vc(
@@ -302,7 +293,6 @@ class VC:
                 index,
                 big_npy,
                 index_rate,
-                version,
                 protect,
             )[self.t_pad_tgt : -self.t_pad_tgt],
         )
@@ -315,9 +305,7 @@ class VC:
         if audio_max > 1:
             audio_opt /= audio_max
 
-        if pitch_guidance:
-            del pitch_tensor, pitchf_tensor
-        del sid
+        del sid, pitch_tensor, pitchf_tensor
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
