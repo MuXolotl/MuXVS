@@ -4,6 +4,3 @@ preview = false
 
 [lint]
 select = ["ALL"]
-
-[lint.isort]
-known-first-party = ["rvc", "gradio_ui", "assets"]
