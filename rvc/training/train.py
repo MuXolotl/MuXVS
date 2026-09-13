@@ -68,6 +68,7 @@ def get_hparams():
     # Генерация файла конфигурации
     if not os.path.exists(config_save_path):
         from rvc._library.config import generate_config
+
         generate_config(config_save_path, args.sample_rate, args.vocoder)
 
     # Загрузка файла конфигурации
@@ -233,10 +234,20 @@ def run(hps, rank, n_gpus, device, device_id):
             from rvc._library.optimizers.PolOpt import PolOpt
 
             optim_g = PolOpt(
-                net_g.parameters(), lr=hps.train.learning_rate, betas=(0.8, 0.99), eps=1e-7, weight_decay=0.01, max_step_clip=1.0
+                net_g.parameters(),
+                lr=hps.train.learning_rate,
+                betas=(0.8, 0.99),
+                eps=1e-7,
+                weight_decay=0.01,
+                max_step_clip=1.0,
             )
             optim_d = PolOpt(
-                net_d.parameters(), lr=hps.train.learning_rate * 1.5, betas=(0.5, 0.99), eps=1e-7, weight_decay=0.01, max_step_clip=1.0
+                net_d.parameters(),
+                lr=hps.train.learning_rate * 1.5,
+                betas=(0.5, 0.99),
+                eps=1e-7,
+                weight_decay=0.01,
+                max_step_clip=1.0,
             )
         else:
             optim_g = torch.optim.AdamW(net_g.parameters(), hps.train.learning_rate, betas=hps.train.betas, eps=hps.train.eps)
@@ -381,7 +392,7 @@ def train_and_evaluate(hps, rank, epoch, nets, optims, train_loader, writer_eval
                 "loss/g/total": loss_gen_all,
                 "grad/norm_d": grad_norm_d,
                 "grad/norm_g": grad_norm_g,
-            }
+            },
         )
 
         # Сохраняем данные последнего батча для визуализации и F0-метрики

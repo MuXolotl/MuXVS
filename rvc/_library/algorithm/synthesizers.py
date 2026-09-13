@@ -75,6 +75,7 @@ class Synthesizer(torch.nn.Module):
 
         if vocoder == "MRF HiFi-GAN":
             from rvc._library.algorithm.generators.hifigan_mrf import HiFiGANMRFGenerator
+
             self.dec = HiFiGANMRFGenerator(
                 in_channel=inter_channels,
                 upsample_initial_channel=upsample_initial_channel,
@@ -89,6 +90,7 @@ class Synthesizer(torch.nn.Module):
             )
         elif vocoder == "RefineGAN":
             from rvc._library.algorithm.generators.refinegan import RefineGANGenerator
+
             self.dec = RefineGANGenerator(
                 sample_rate=sr,
                 downsample_rates=upsample_rates[::-1],
@@ -99,6 +101,7 @@ class Synthesizer(torch.nn.Module):
             )
         else:
             from rvc._library.algorithm.generators.hifigan_nsf import HiFiGANNSFGenerator
+
             self.dec = HiFiGANNSFGenerator(
                 inter_channels,
                 resblock_kernel_sizes,
