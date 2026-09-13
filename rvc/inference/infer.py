@@ -6,7 +6,6 @@ import edge_tts
 import gradio as gr
 import torch
 
-# MuXVS
 from rvc._library.config import Config
 from rvc._library.algorithm.synthesizers import Synthesizer
 from rvc._library.embedders.fairseq import load_model

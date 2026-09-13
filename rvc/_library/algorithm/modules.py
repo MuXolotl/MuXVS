@@ -1,6 +1,5 @@
 import torch
 
-# MuXVS
 from rvc._library.algorithm.commons import fused_add_tanh_sigmoid_multiply
 
 

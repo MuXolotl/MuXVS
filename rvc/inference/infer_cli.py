@@ -9,7 +9,6 @@ os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"  # Disabling Gradio analytics
 logging.basicConfig(level=logging.WARNING)  # Disable all logs, except WARNING and above
 warnings.filterwarnings("ignore")  # Disable all warnings
 
-# MuXVS
 from assets.model_installer import check_and_install_models
 from rvc.inference.infer import rvc_edgetts_infer, rvc_infer
 

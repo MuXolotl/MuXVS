@@ -1,6 +1,5 @@
 import torch
 
-# MuXVS
 from rvc._library.algorithm.commons import rand_slice_segments, slice_segments
 from rvc._library.algorithm.encoders import PosteriorEncoder, TextEncoder
 from rvc._library.algorithm.residuals import ResidualCouplingBlock

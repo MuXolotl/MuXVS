@@ -8,7 +8,6 @@ import torch.nn.functional as F
 from scipy import signal
 from tqdm import tqdm
 
-# MuXVS
 from rvc._library.predictors.f0 import CREPEF0, FCPEF0, RMVPEF0, AutoTune, calc_pitch_shift
 
 # Фильтр Баттерворта для высоких частот

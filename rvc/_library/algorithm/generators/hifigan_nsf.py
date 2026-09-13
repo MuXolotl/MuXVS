@@ -6,7 +6,6 @@ from torch.nn.utils import remove_weight_norm
 from torch.nn.utils.parametrizations import weight_norm
 from torch.utils.checkpoint import checkpoint
 
-# MuXVS
 from rvc._library.algorithm.commons import init_weights
 from rvc._library.algorithm.residuals import LRELU_SLOPE, ResBlock
 

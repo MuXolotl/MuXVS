@@ -2,7 +2,6 @@ import math
 
 import torch
 
-# MuXVS
 from rvc._library.algorithm.commons import convert_pad_shape
 
 

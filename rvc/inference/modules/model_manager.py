@@ -5,7 +5,6 @@ import zipfile
 
 import gradio as gr
 
-# MuXVS
 from rvc.inference.modules.download_source import download_file
 
 # Путь к директории, где будут храниться модели RVC

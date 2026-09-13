@@ -25,7 +25,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-# MuXVS
 sys.path.append(os.path.join(os.getcwd()))
 from rvc._library.algorithm.commons import grad_norm, slice_segments
 from rvc._library.algorithm.discriminators import MultiPeriodDiscriminator

@@ -5,7 +5,6 @@ import soundfile as sf
 import torch
 import torch.utils.data
 
-# MuXVS
 from rvc.training.mel_processing import spectrogram_torch
 
 

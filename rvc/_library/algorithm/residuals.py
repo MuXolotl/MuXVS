@@ -4,7 +4,6 @@ import torch
 from torch.nn.utils import remove_weight_norm
 from torch.nn.utils.parametrizations import weight_norm
 
-# MuXVS
 from rvc._library.algorithm.commons import get_padding, init_weights
 from rvc._library.algorithm.modules import WaveNet
 

@@ -13,7 +13,6 @@ warnings.filterwarnings("ignore")  # Disable all warnings
 
 import gradio as gr
 
-# MuXVS
 from assets.model_installer import check_and_install_models
 from assets.notebook_check import colab_check, kaggle_check
 from assets.version import __version__, __version_info__

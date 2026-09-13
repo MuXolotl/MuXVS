@@ -16,7 +16,6 @@ import soundfile as sf
 import torch
 from tqdm import tqdm
 
-# MuXVS
 sys.path.append(os.getcwd())
 from rvc._library.audio import load_audio
 from rvc._library.embedders.fairseq import load_model

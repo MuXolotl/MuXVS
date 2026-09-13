@@ -2,7 +2,6 @@ import math
 
 import torch
 
-# MuXVS
 from rvc._library.algorithm.attentions import FFN, MultiHeadAttention
 from rvc._library.algorithm.commons import sequence_mask
 from rvc._library.algorithm.modules import WaveNet
