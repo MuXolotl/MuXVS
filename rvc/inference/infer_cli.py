@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import sys
 import warnings
 
 # Configuring the environment and logging
@@ -8,6 +9,13 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # Disable unnecessary TensorFlow logs
 os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"  # Disabling Gradio analytics
 logging.basicConfig(level=logging.WARNING)  # Disable all logs, except WARNING and above
 warnings.filterwarnings("ignore")  # Disable all warnings
+
+if sys.platform == "win32":
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
 
 from assets.model_installer import check_and_install_models
 from rvc.inference.infer import rvc_edgetts_infer, rvc_infer

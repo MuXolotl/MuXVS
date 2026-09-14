@@ -11,6 +11,13 @@ os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"  # Disabling Gradio analytics
 logging.basicConfig(level=logging.WARNING)  # Disable all logs, except WARNING and above
 warnings.filterwarnings("ignore")  # Disable all warnings
 
+if sys.platform == "win32":
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
 import gradio as gr
 
 from assets.model_installer import check_and_install_models

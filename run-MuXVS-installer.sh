@@ -11,6 +11,14 @@ ENV_DIR="$PRINCIPAL/env"
 MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-py311_25.1.1-2-Linux-x86_64.sh"
 CONDA_EXE="$MINICONDA_DIR/bin/conda"
 
+if [ "$(uname)" = "Darwin" ]; then
+    if [ "$(uname -m)" = "arm64" ]; then
+        MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-py311_25.1.1-2-MacOSX-arm64.sh"
+    else
+        MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-py311_25.1.1-2-MacOSX-x86_64.sh"
+    fi
+fi
+
 install_miniconda() {
     if [ -d "$MINICONDA_DIR" ]; then
         echo "Miniconda already installed. Skipping installation."
@@ -18,7 +26,7 @@ install_miniconda() {
     fi
 
     echo "Miniconda not found. Starting download and installation..."
-    wget -O miniconda.sh "$MINICONDA_URL"
+    curl -fSL -o miniconda.sh "$MINICONDA_URL"
     if [ ! -f "miniconda.sh" ]; then
         echo "Download failed. Please check your internet connection and try again."
         exit 1
@@ -49,7 +57,11 @@ install_dependencies() {
     source "$MINICONDA_DIR/etc/profile.d/conda.sh"
     conda activate "$ENV_DIR"
     pip install --upgrade setuptools
-    pip install torch==2.7.1 torchaudio==2.7.1 torchvision==0.22.1 --upgrade --index-url https://download.pytorch.org/whl/cu128
+    if [ "$(uname)" = "Darwin" ]; then
+        pip install torch==2.7.1 torchaudio==2.7.1 --upgrade
+    else
+        pip install torch==2.7.1 torchaudio==2.7.1 --upgrade --index-url https://download.pytorch.org/whl/cu128
+    fi
     pip install -r "$PRINCIPAL/requirements.txt"
     conda deactivate
     echo "Dependencies installation complete."
