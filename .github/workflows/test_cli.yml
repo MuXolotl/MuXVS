@@ -3,23 +3,32 @@ name: CLI Scripts Test
 on:
   push:
     paths:
-      - '**/*.txt'
+      - 'requirements.txt'
+      - 'assets/**'
       - 'rvc/_library/**'
       - 'rvc/inference/**'
-      - 'rvc/inference/modules/**'
       - '.github/workflows/test_cli.yml'
   pull_request:
     paths:
-      - '**/*.txt'
+      - 'requirements.txt'
+      - 'assets/**'
       - 'rvc/_library/**'
       - 'rvc/inference/**'
-      - 'rvc/inference/modules/**'
       - '.github/workflows/test_cli.yml'
+
+# Матрица тяжёлая (8 job'ов, каждый тянет веса моделей), поэтому устаревшие
+# прогоны одного и того же ref гасим. Для push в ветку не отменяем — только для PR.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   rvc_cli:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     strategy:
+      # Одна упавшая версия Python не должна гасить остальные — смысл матрицы в сравнении
+      fail-fast: false
       matrix:
         python-version: ['3.10', '3.11', '3.12', '3.13']
 
@@ -61,15 +70,29 @@ jobs:
       run: |
         python3 -m rvc.inference.infer_cli rvc --input_path "audio/test.mp3" --rvc_model "Tsoi" --f0_method "rmvpe+" --f0_min 1 --f0_max 1100 --rvc_pitch -6 --protect 0.5 --index_rate 0 --volume_envelope 1 --autopitch True --autopitch_threshold 155.0 --autotune True --autotune_tonic "B" --autotune_scale "minor" --autotune_strength 1.0 --upscale True --stereo True --output_format "mp3"
 
+    - name: List output files
+      if: ${{ !cancelled() }}
+      run: |
+        echo "Содержимое output/ (infer.py пишет в $GITHUB_WORKSPACE/output/RVC_output):"
+        find output -type f -printf '%10s байт  %p\n' 2>/dev/null || echo "  (ничего не найдено)"
+
     - name: Upload RVC output artifact
       uses: actions/upload-artifact@v4
       with:
         name: rvc-audio-${{ matrix.python-version }}
-        path: /home/runner/work/PolGen/PolGen/output/RVC_output/*.mp3
+        # Путь относительный к $GITHUB_WORKSPACE — не ломается при переименовании репозитория.
+        # Раньше здесь был абсолютный /home/runner/work/PolGen/PolGen/output/..., после переезда
+        # на MuXVS он не находил ни одного файла и молча публиковал пустой артефакт.
+        # if-no-files-found: error — чтобы такой же дрейф пути теперь ронял job, а не прятался.
+        path: output/RVC_output/
+        if-no-files-found: error
+        retention-days: 14
 
   tts_cli:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     strategy:
+      fail-fast: false
       matrix:
         python-version: ['3.10', '3.11', '3.12', '3.13']
 
@@ -105,3 +128,18 @@ jobs:
     - name: Run tts script
       run: |
         python3 -m rvc.inference.infer_cli tts --tts_voice "en-US-GuyNeural" --tts_text "e" --tts_rate 0 --tts_volume 0 --tts_pitch 0 --rvc_model "Tsoi" --f0_method "rmvpe+" --f0_min 1 --f0_max 1100 --rvc_pitch -6 --protect 0.5 --index_rate 0 --volume_envelope 1 --autopitch True --autopitch_threshold 155.0 --autotune True --autotune_tonic "B" --autotune_scale "minor" --autotune_strength 1.0 --upscale True --stereo True --output_format "mp3"
+
+    - name: List output files
+      if: ${{ !cancelled() }}
+      run: |
+        echo "Содержимое output/ (ожидаются TTS_Voice.wav и TTS_Voice_(Tsoi).mp3):"
+        find output -type f -printf '%10s байт  %p\n' 2>/dev/null || echo "  (ничего не найдено)"
+
+    # Раньше у tts_cli шага выгрузки не было вовсе — результат синтеза просто терялся.
+    - name: Upload TTS output artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: tts-audio-${{ matrix.python-version }}
+        path: output/RVC_output/
+        if-no-files-found: error
+        retention-days: 14

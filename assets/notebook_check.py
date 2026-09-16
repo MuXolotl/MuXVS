@@ -5,7 +5,8 @@ import sys
 def colab_check() -> bool:
     """Проверьте, запускается ли интерфейс из Google Colab."""
     try:
-        import google.colab
+        # Сам импорт и есть проверка: в Colab модуль существует, вне его — ImportError
+        import google.colab  # noqa: F401
 
         return True
     except ImportError:

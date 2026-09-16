@@ -7,10 +7,64 @@ on:
     paths:
       - '**/*.py'
       - '.github/workflows/code_formatter.yml'
+  pull_request:
+    paths:
+      - '**/*.py'
+      - '.github/workflows/code_formatter.yml'
 
 jobs:
-  format_code:
+  # ─────────────────────────────────────────────────────────────
+  # PR: только проверяем форматирование, ничего не коммитим.
+  # Раньше форматирование вообще не проверялось до мержа в main,
+  # а авто-PR от форматтера приходил уже постфактум.
+  # ─────────────────────────────────────────────────────────────
+  check:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: pip install -U ruff
+
+      - name: Run Ruff Formatter (check)
+        run: ruff format --check .
+
+      # Блокируем только критичное: неиспользуемые импорты, неопределённые имена, синтаксис.
+      # Полный набор из ruff.toml (select = ALL) даёт тысячи накопленных замечаний
+      # и блокирующим быть не может — он уходит в сводку ниже.
+      - name: Run Ruff Linter (критичные правила)
+        run: ruff check --select F,E9 .
+
+      - name: Сводка по полному набору правил
+        if: ${{ always() }}
+        run: |
+          ruff check . --statistics > ruff_full.log 2>&1 || true
+          {
+            echo "## Ruff: статистика по правилам из \`ruff.toml\` (\`select = ALL\`)"
+            echo
+            echo "Эти замечания не блокируют мерж — справочно."
+            echo
+            echo '```'
+            head -40 ruff_full.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ─────────────────────────────────────────────────────────────
+  # push в main: как и раньше — автофикс и PR с косметикой
+  # ─────────────────────────────────────────────────────────────
+  format_code:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     permissions:
       contents: write
@@ -19,8 +73,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-        with:
-          ref: ${{ github.ref_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -44,6 +96,7 @@ jobs:
           else
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
           fi
+          git diff --stat >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Create Pull Request
         if: steps.changes.outputs.has_changes == 'true'
@@ -60,5 +113,6 @@ jobs:
 
             ✨ Изменения затрагивают только стиль кода, логика работы не изменена.
             > Целевая версия Python: **3.13**
+          base: main
           branch: "formatter/${{ github.ref_name }}"
           delete-branch: true

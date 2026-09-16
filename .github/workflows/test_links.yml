@@ -15,6 +15,7 @@ on:
 jobs:
   check-links:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
     - name: Checkout code
@@ -30,32 +31,85 @@ jobs:
         pip install --no-cache-dir uv
         uv pip install --no-cache-dir -U requests gdown mega-x gradio -q --system
 
+    # continue-on-error нужен, чтобы один мёртвый источник не обрывал проверку остальных.
+    # Но раньше на этом всё и заканчивалось: job всегда был зелёным, и отличить
+    # «ссылка протухла» от «сломался model_manager» было невозможно. Теперь каждый шаг
+    # имеет id, его исход собирается в сводку, а в конце стоит гейт.
     - name: Google Drive
+      id: gdrive
+      continue-on-error: true
       run: |
         python3 -m rvc.inference.modules.model_manager "https://drive.google.com/file/d/1LT68BM6AoR1GLZV-mMWAUV1plGCORcqn/view?usp=sharing" "test1"
-      continue-on-error: true
 
     - name: HuggingFace
+      id: huggingface
+      continue-on-error: true
       run: |
         python3 -m rvc.inference.modules.model_manager "https://huggingface.co/Politrees/Victor_Tsoi/resolve/main/Victor_Tsoi.zip?download=true" "test2"
-      continue-on-error: true
 
     - name: Pixeldrain
+      id: pixeldrain
+      continue-on-error: true
       run: |
         python3 -m rvc.inference.modules.model_manager "https://pixeldrain.com/u/mN7BsdZb" "test3"
-      continue-on-error: true
 
     - name: Mega
+      id: mega
+      continue-on-error: true
       run: |
         python3 -m rvc.inference.modules.model_manager "https://mega.nz/file/vgMBFB5I#-ZUtYEvV-OImhRjs9b1UpFyE2lm-BuEbODD3N9b3sg4" "test4"
-      continue-on-error: true
 
     - name: Yandex Disk
+      id: yandex
+      continue-on-error: true
       run: |
         python3 -m rvc.inference.modules.model_manager "https://disk.yandex.ru/d/njvq8NEQgS2OhQ" "test5"
-      continue-on-error: true
 
     - name: Dropbox
+      id: dropbox
+      continue-on-error: true
       run: |
         python3 -m rvc.inference.modules.model_manager "https://www.dropbox.com/scl/fi/83w0xvvdkmokpzx7aoqh8/Victor_Tsoi.zip?rlkey=i6xmw8655ab49x0ix5vj16mox&st=c60rv2c5&dl=0" "test6"
-      continue-on-error: true
+
+    - name: Отчёт по источникам
+      if: ${{ always() }}
+      env:
+        RES_GDRIVE: ${{ steps.gdrive.outcome }}
+        RES_HUGGINGFACE: ${{ steps.huggingface.outcome }}
+        RES_PIXELDRAIN: ${{ steps.pixeldrain.outcome }}
+        RES_MEGA: ${{ steps.mega.outcome }}
+        RES_YANDEX: ${{ steps.yandex.outcome }}
+        RES_DROPBOX: ${{ steps.dropbox.outcome }}
+      run: |
+        {
+          echo "## Проверка источников загрузки"
+          echo
+          echo "| Источник | Исход |"
+          echo "|---|---|"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+        total=0; failed=0
+        for entry in "Google Drive|$RES_GDRIVE" "HuggingFace|$RES_HUGGINGFACE" "Pixeldrain|$RES_PIXELDRAIN" \
+                     "Mega|$RES_MEGA" "Yandex Disk|$RES_YANDEX" "Dropbox|$RES_DROPBOX"; do
+          name="${entry%%|*}"; outcome="${entry##*|}"
+          total=$((total + 1))
+          if [ "$outcome" = "success" ]; then
+            echo "| $name | ✅ success |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| $name | ❌ $outcome |" >> "$GITHUB_STEP_SUMMARY"
+            failed=$((failed + 1))
+          fi
+        done
+
+        echo
+        echo "Всего источников: $total, не отработало: $failed"
+
+        # Гейт: роняем job только если не отработало вообще всё — это почти наверняка
+        # означает поломку самого model_manager/download_source, а не протухшую ссылку.
+        if [ "$failed" -eq "$total" ]; then
+          echo "::error::Ни один источник не отработал. Похоже, сломан model_manager.py или download_source.py, а не тестовые ссылки."
+          exit 1
+        fi
+        if [ "$failed" -gt 0 ]; then
+          echo "::warning::Не отработало источников: $failed из $total. Вероятно, часть тестовых ссылок устарела — детали в сводке job'а."
+        fi
