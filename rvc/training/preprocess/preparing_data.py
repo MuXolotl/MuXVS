@@ -64,7 +64,7 @@ class DataPreprocessor:
         return f0_coarse
 
     def extract_features(self, wav_path):
-        """Извлечение признаков HuBERT (модель принимает только 16 кГц, моно)"""
+        """Извлечение признаков HuBERT"""
         audio = load_audio(wav_path, self.sample_rate)
         source = torch.from_numpy(audio).float().view(1, -1).to(self.device)
         padding_mask = torch.zeros(source.shape, dtype=torch.bool, device=self.device)
@@ -75,9 +75,6 @@ class DataPreprocessor:
 
     def process_files(self):
         """Основной метод обработки файлов"""
-        # Подготовка путей.
-        # Отдельные копии в 16 кГц больше не хранятся на диске: F0 и HuBERT извлекаются
-        # из основных нарезок, которые ресемплируются на лету (compute_f0 / extract_features).
         inp_root = f"{exp_dir}/data/sliced_audios"
         f0_quant_path = f"{exp_dir}/data/f0_quantized"
         f0_voiced_path = f"{exp_dir}/data/f0_voiced"
