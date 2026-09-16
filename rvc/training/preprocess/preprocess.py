@@ -55,13 +55,9 @@ class Postfix:
 
 class PreProcess:
     def __init__(self, sample_rate, exp_dir, percentage=3.0, normalize=True):
-        # Директории для сохранения обработанных аудиофайлов
+        # Директория для сохранения обработанных аудиофайлов
         self.gt_wavs_dir = os.path.join(exp_dir, "data", "sliced_audios")
-        self.wavs16k_dir = os.path.join(exp_dir, "data", "sliced_audios_16k")
-
-        # Создаем директории, если они не существуют
         os.makedirs(self.gt_wavs_dir, exist_ok=True)
-        os.makedirs(self.wavs16k_dir, exist_ok=True)
 
         # Инициализация Slicer для нарезки аудио
         self.slicer = Slicer(
@@ -89,10 +85,6 @@ class PreProcess:
         if self.normalize:
             tmp_audio = (tmp_audio / tmp_max * (0.9 * 0.75)) + (1 - 0.75) * tmp_audio
         wavfile.write(f"{self.gt_wavs_dir}/{idx0}_{idx1}.wav", self.sample_rate, tmp_audio.astype(np.float32))
-
-        # Ресемплирование аудио до 16 кГц и сохранение в WAV
-        tmp_audio_16k = librosa.resample(tmp_audio, orig_sr=self.sample_rate, target_sr=16000, res_type="soxr_vhq")
-        wavfile.write(f"{self.wavs16k_dir}/{idx0}_{idx1}.wav", 16000, tmp_audio_16k.astype(np.float32))
         return 1  # Сегмент записан
 
     def pipeline_inp_dir(self, input_root):
