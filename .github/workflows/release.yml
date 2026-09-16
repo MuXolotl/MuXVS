@@ -41,8 +41,7 @@ permissions:
 
 env:
   PYTHON_VERSION: '3.11'
-  # Куда выкладываются готовые сборки. В MuXVS это имя нигде не было зафиксировано,
-  # поэтому оно вынесено в параметр workflow_dispatch — при запуске по тегу берётся значение по умолчанию.
+  # репозиторий HuggingFace для сборок, переопределяется параметром hf_repo
   HF_REPO: ${{ github.event.inputs.hf_repo || 'MuXolotl/MuXVS' }}
 
 jobs:
@@ -217,9 +216,7 @@ jobs:
             Where-Object { $_.Name -match '^\.git|^__pycache__|\.ipynb_checkpoints' } | 
             Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
           
-          # Compress-Archive в PowerShell 5.1 не умеет архивы больше 2 ГБ, а сборка
-          # с conda-окружением и torch весит заметно больше — берём 7-Zip, он есть
-          # на runners windows-latest. mx=1: скорость важнее плотности для 5+ ГБ.
+          # Compress-Archive в PowerShell 5.1 не умеет архивы больше 2 ГБ
           & 7z a -tzip -mx=1 $archiveName $tempDir | Out-Null
           if ($LASTEXITCODE -ne 0) { throw "7z не смог собрать архив (код $LASTEXITCODE)" }
           Remove-Item -Path $tempDir -Recurse -Force
@@ -343,9 +340,7 @@ jobs:
             Where-Object { $_.Name -match '^\.git|^__pycache__|\.ipynb_checkpoints' } | 
             Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
           
-          # Compress-Archive в PowerShell 5.1 не умеет архивы больше 2 ГБ, а сборка
-          # с conda-окружением и torch весит заметно больше — берём 7-Zip, он есть
-          # на runners windows-latest. mx=1: скорость важнее плотности для 5+ ГБ.
+          # Compress-Archive в PowerShell 5.1 не умеет архивы больше 2 ГБ
           & 7z a -tzip -mx=1 $archiveName $tempDir | Out-Null
           if ($LASTEXITCODE -ne 0) { throw "7z не смог собрать архив (код $LASTEXITCODE)" }
           Remove-Item -Path $tempDir -Recurse -Force

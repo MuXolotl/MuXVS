@@ -22,8 +22,6 @@ jobs:
       contents: read
 
     steps:
-      # Без ref: ${{ github.ref_name }} — на pull_request это "<номер>/merge",
-      # checkout и так берёт нужный ref, а явное указание только мешало.
       - name: Checkout code
         uses: actions/checkout@v5
 
@@ -38,9 +36,7 @@ jobs:
           uv pip install --no-cache-dir torch==2.11.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cpu -q --system
           uv pip install --no-cache-dir flake8 pylint vulture ruff -r requirements.txt -q --system
 
-      # Все проверки ниже — continue-on-error: в кодовой базе тысячи накопленных
-      # замечаний, блокирующим такой lint сделать нельзя. Но раньше их вывод просто
-      # терялся в логах, поэтому теперь каждый пишет файл, а сводка уезжает в job summary.
+      # continue-on-error: накопленных замечаний слишком много для блокирующей проверки
       - name: Run flake8
         id: flake8
         continue-on-error: true
@@ -77,8 +73,7 @@ jobs:
           RES_VULTURE: ${{ steps.vulture.outcome }}
           RES_RUFF: ${{ steps.ruff.outcome }}
         run: |
-          # grep -c печатает 0 и выходит с кодом 1, если совпадений нет, —
-          # поэтому `|| true`, а не `|| echo 0` (иначе в таблицу попало бы два нуля)
+          # grep -c возвращает 1 при нуле совпадений, поэтому || true
           count_lines() { if [ -f "$1" ]; then grep -cve '^[[:space:]]*$' "$1" || true; else echo 0; fi; }
 
           {
@@ -90,9 +85,6 @@ jobs:
             echo "| pylint | $RES_PYLINT | $(count_lines pylint.log) |"
             echo "| vulture | $RES_VULTURE | $(count_lines vulture.log) |"
             echo "| ruff (select = ALL) | $RES_RUFF | $(count_lines ruff.log) |"
-            echo
-            echo "Блокирующим является только шаг «Критичные ошибки Ruff» (F, E9) —"
-            echo "неиспользуемые импорты, неопределённые имена и синтаксис."
             echo
             echo "<details><summary>Ruff: статистика по правилам</summary>"
             echo

@@ -18,8 +18,6 @@ on:
       - 'rvc/inference/**'
       - '.github/workflows/test_cli.yml'
 
-# Матрица тяжёлая (8 job'ов, каждый тянет веса моделей), поэтому устаревшие
-# прогоны одного и того же ref гасим. Для push в ветку не отменяем — только для PR.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -31,7 +29,6 @@ jobs:
     permissions:
       contents: read
     strategy:
-      # Одна упавшая версия Python не должна гасить остальные — смысл матрицы в сравнении
       fail-fast: false
       matrix:
         python-version: ['3.10', '3.11', '3.12', '3.13']
@@ -76,18 +73,12 @@ jobs:
 
     - name: List output files
       if: ${{ !cancelled() }}
-      run: |
-        echo "Содержимое output/ (infer.py пишет в $GITHUB_WORKSPACE/output/RVC_output):"
-        find output -type f -printf '%10s байт  %p\n' 2>/dev/null || echo "  (ничего не найдено)"
+      run: ls -laR output || true
 
     - name: Upload RVC output artifact
       uses: actions/upload-artifact@v4
       with:
         name: rvc-audio-${{ matrix.python-version }}
-        # Путь относительный к $GITHUB_WORKSPACE — не ломается при переименовании репозитория.
-        # Раньше здесь был абсолютный /home/runner/work/PolGen/PolGen/output/..., после переезда
-        # на MuXVS он не находил ни одного файла и молча публиковал пустой артефакт.
-        # if-no-files-found: error — чтобы такой же дрейф пути теперь ронял job, а не прятался.
         path: output/RVC_output/
         if-no-files-found: error
         retention-days: 14
@@ -137,11 +128,8 @@ jobs:
 
     - name: List output files
       if: ${{ !cancelled() }}
-      run: |
-        echo "Содержимое output/ (ожидаются TTS_Voice.wav и TTS_Voice_(Tsoi).mp3):"
-        find output -type f -printf '%10s байт  %p\n' 2>/dev/null || echo "  (ничего не найдено)"
+      run: ls -laR output || true
 
-    # Раньше у tts_cli шага выгрузки не было вовсе — результат синтеза просто терялся.
     - name: Upload TTS output artifact
       uses: actions/upload-artifact@v4
       with:

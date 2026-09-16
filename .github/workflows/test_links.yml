@@ -35,10 +35,7 @@ jobs:
         pip install --no-cache-dir uv
         uv pip install --no-cache-dir -U requests gdown mega-x gradio -q --system
 
-    # continue-on-error нужен, чтобы один мёртвый источник не обрывал проверку остальных.
-    # Но раньше на этом всё и заканчивалось: job всегда был зелёным, и отличить
-    # «ссылка протухла» от «сломался model_manager» было невозможно. Теперь каждый шаг
-    # имеет id, его исход собирается в сводку, а в конце стоит гейт.
+    # continue-on-error, чтобы один мёртвый источник не обрывал проверку остальных
     - name: Google Drive
       id: gdrive
       continue-on-error: true
@@ -108,12 +105,11 @@ jobs:
         echo
         echo "Всего источников: $total, не отработало: $failed"
 
-        # Гейт: роняем job только если не отработало вообще всё — это почти наверняка
-        # означает поломку самого model_manager/download_source, а не протухшую ссылку.
+        # job падает, только если не отработало всё — значит сломан model_manager, а не ссылки
         if [ "$failed" -eq "$total" ]; then
-          echo "::error::Ни один источник не отработал. Похоже, сломан model_manager.py или download_source.py, а не тестовые ссылки."
+          echo "::error::Ни один источник не отработал."
           exit 1
         fi
         if [ "$failed" -gt 0 ]; then
-          echo "::warning::Не отработало источников: $failed из $total. Вероятно, часть тестовых ссылок устарела — детали в сводке job'а."
+          echo "::warning::Не отработало источников: $failed из $total."
         fi
