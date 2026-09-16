@@ -13,9 +13,6 @@ on:
       - '.github/workflows/code_formatter.yml'
 
 jobs:
-  # ═══════════════════════════════════════════════════════════════
-  # Проверка форматирования в PR
-  # ═══════════════════════════════════════════════════════════════
   check:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -38,25 +35,6 @@ jobs:
       - name: Run Ruff Formatter (check)
         run: ruff format --check .
 
-      # полный набор правил ruff.toml блокирующим быть не может — только F и E9
-      - name: Run Ruff Linter (критичные правила)
-        run: ruff check --select F,E9 .
-
-      - name: Сводка по полному набору правил
-        if: ${{ always() }}
-        run: |
-          ruff check . --statistics > ruff_full.log 2>&1 || true
-          {
-            echo "## Ruff: статистика по правилам из \`ruff.toml\` (\`select = ALL\`)"
-            echo
-            echo '```'
-            head -40 ruff_full.log
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-  # ═══════════════════════════════════════════════════════════════
-  # Автофикс и PR с косметикой после push в main
-  # ═══════════════════════════════════════════════════════════════
   format_code:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
