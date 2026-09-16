@@ -12,7 +12,6 @@ logging.basicConfig(level=logging.WARNING)
 warnings.filterwarnings("ignore")
 
 import numpy as np
-import soundfile as sf
 import torch
 from tqdm import tqdm
 
@@ -31,7 +30,7 @@ class DataPreprocessor:
     def __init__(self):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        # Настройки для F0
+        # Рабочая частота F0 и HuBERT — обе модели требуют 16 кГц
         self.sample_rate = 16000
         self.hop_size = 160
         self.f0_bin = 256
@@ -65,14 +64,9 @@ class DataPreprocessor:
         return f0_coarse
 
     def read_wave(self, wav_path):
-        """Чтение аудиофайла"""
-        wav, sr = sf.read(wav_path)
-        assert sr == 16000
-        feats = torch.from_numpy(wav).float()
-        if feats.dim() == 2:
-            feats = feats.mean(-1)
-        assert feats.dim() == 1
-        return feats.view(1, -1)
+        """Чтение аудиофайла с ресемплированием до 16 кГц (HuBERT принимает только эту частоту)"""
+        wav = load_audio(wav_path, self.sample_rate)
+        return torch.from_numpy(wav).float().view(1, -1)
 
     def extract_features(self, wav_path):
         """Извлечение признаков HuBERT"""
@@ -85,8 +79,10 @@ class DataPreprocessor:
 
     def process_files(self):
         """Основной метод обработки файлов"""
-        # Подготовка путей
-        inp_root = f"{exp_dir}/data/sliced_audios_16k"
+        # Подготовка путей.
+        # Отдельные копии в 16 кГц больше не хранятся на диске: F0 и HuBERT извлекаются
+        # из основных нарезок, которые ресемплируются на лету (compute_f0 / read_wave).
+        inp_root = f"{exp_dir}/data/sliced_audios"
         f0_quant_path = f"{exp_dir}/data/f0_quantized"
         f0_voiced_path = f"{exp_dir}/data/f0_voiced"
         features_path = f"{exp_dir}/data/features"
@@ -96,7 +92,7 @@ class DataPreprocessor:
         os.makedirs(features_path, exist_ok=True)
 
         # Сбор файлов для обработки
-        files = sorted([f for f in os.listdir(inp_root) if f.endswith(".wav") and "spec" not in f])
+        files = sorted(f for f in os.listdir(inp_root) if f.endswith(".wav"))
         if not files:
             self._raise_no_files_error()
 

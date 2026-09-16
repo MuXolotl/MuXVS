@@ -3,7 +3,6 @@ import sys
 import time
 import traceback
 
-import librosa
 import numpy as np
 from scipy import signal
 from scipy.io import wavfile
