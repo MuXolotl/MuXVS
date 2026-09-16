@@ -66,11 +66,11 @@ class DataPreprocessor:
     def extract_features(self, wav_path):
         """Извлечение признаков HuBERT (модель принимает только 16 кГц, моно)"""
         audio = load_audio(wav_path, self.sample_rate)
-        feats = torch.from_numpy(audio).float().view(1, -1).to(self.device)
-        padding_mask = torch.BoolTensor(feats.shape).fill_(False).to(self.device)
+        source = torch.from_numpy(audio).float().view(1, -1).to(self.device)
+        padding_mask = torch.zeros(source.shape, dtype=torch.bool, device=self.device)
 
         with torch.no_grad():
-            logits = self.hubert_model.extract_features(source=feats, padding_mask=padding_mask, output_layer=12)
+            logits = self.hubert_model.extract_features(source=source, padding_mask=padding_mask, output_layer=12)
             return logits[0].squeeze(0).float().cpu().numpy()
 
     def process_files(self):
