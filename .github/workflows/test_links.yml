@@ -2,6 +2,8 @@ name: Link Test
 
 on:
   push:
+    branches:
+      - main
     paths:
       - '.github/workflows/test_links.yml'
       - 'rvc/inference/modules/download_source.py'
@@ -16,6 +18,8 @@ jobs:
   check-links:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
 
     steps:
     - name: Checkout code

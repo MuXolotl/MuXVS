@@ -2,6 +2,8 @@ name: CLI Scripts Test
 
 on:
   push:
+    branches:
+      - main
     paths:
       - 'requirements.txt'
       - 'assets/**'
@@ -26,6 +28,8 @@ jobs:
   rvc_cli:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    permissions:
+      contents: read
     strategy:
       # Одна упавшая версия Python не должна гасить остальные — смысл матрицы в сравнении
       fail-fast: false
@@ -91,6 +95,8 @@ jobs:
   tts_cli:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
