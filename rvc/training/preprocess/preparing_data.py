@@ -63,14 +63,10 @@ class DataPreprocessor:
         assert f0_coarse.max() <= 255 and f0_coarse.min() >= 1, (f0_coarse.max(), f0_coarse.min())
         return f0_coarse
 
-    def read_wave(self, wav_path):
-        """Чтение аудиофайла с ресемплированием до 16 кГц (HuBERT принимает только эту частоту)"""
-        wav = load_audio(wav_path, self.sample_rate)
-        return torch.from_numpy(wav).float().view(1, -1)
-
     def extract_features(self, wav_path):
-        """Извлечение признаков HuBERT"""
-        feats = self.read_wave(wav_path).to(self.device)
+        """Извлечение признаков HuBERT (модель принимает только 16 кГц, моно)"""
+        audio = load_audio(wav_path, self.sample_rate)
+        feats = torch.from_numpy(audio).float().view(1, -1).to(self.device)
         padding_mask = torch.BoolTensor(feats.shape).fill_(False).to(self.device)
 
         with torch.no_grad():
@@ -81,7 +77,7 @@ class DataPreprocessor:
         """Основной метод обработки файлов"""
         # Подготовка путей.
         # Отдельные копии в 16 кГц больше не хранятся на диске: F0 и HuBERT извлекаются
-        # из основных нарезок, которые ресемплируются на лету (compute_f0 / read_wave).
+        # из основных нарезок, которые ресемплируются на лету (compute_f0 / extract_features).
         inp_root = f"{exp_dir}/data/sliced_audios"
         f0_quant_path = f"{exp_dir}/data/f0_quantized"
         f0_voiced_path = f"{exp_dir}/data/f0_voiced"
