@@ -35,10 +35,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v7
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -76,7 +76,7 @@ jobs:
       run: ls -laR output || true
 
     - name: Upload RVC output artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: rvc-audio-${{ matrix.python-version }}
         path: output/RVC_output/
@@ -95,10 +95,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v7
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -131,7 +131,7 @@ jobs:
       run: ls -laR output || true
 
     - name: Upload TTS output artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: tts-audio-${{ matrix.python-version }}
         path: output/RVC_output/
