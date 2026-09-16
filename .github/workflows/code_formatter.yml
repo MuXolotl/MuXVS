@@ -35,6 +35,21 @@ jobs:
       - name: Run Ruff Formatter (check)
         run: ruff format --check .
 
+      - name: Run Ruff Linter (критичные правила)
+        run: ruff check --select F,E9 .
+
+      - name: Сводка по полному набору правил
+        if: ${{ always() }}
+        run: |
+          ruff check . --statistics > ruff_full.log 2>&1 || true
+          {
+            echo "## Ruff: статистика по правилам из \`ruff.toml\` (\`select = ALL\`)"
+            echo
+            echo '```'
+            head -40 ruff_full.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   format_code:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
