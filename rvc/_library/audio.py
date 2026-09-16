@@ -19,16 +19,6 @@ def load_audio(file, sample_rate):
     return audio.flatten()
 
 
-def load_audio_16k(file):
-    # this is used by f0 and feature extractions that load preprocessed 16k files, so there's no need to resample
-    try:
-        audio, sr = librosa.load(file, sr=16000)
-    except Exception as error:
-        raise RuntimeError(f"An error occurred loading the audio: {error}")
-
-    return audio.flatten()
-
-
 def save_audio(audio_data, sample_rate, output_path, output_format="wav", stereo=False):
     """Сохраняет аудио используя прямой вызов FFmpeg через pipe."""
     # Конвертируем в int16 или float32 в зависимости от формата

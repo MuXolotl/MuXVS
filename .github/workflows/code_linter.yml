@@ -2,23 +2,31 @@ name: Code Linter
 
 on:
   push:
+    branches:
+      - main
     paths:
       - '**/*.py'
-      - '**/*.txt'
+      - 'requirements.txt'
+      - '.github/workflows/code_linter.yml'
+  pull_request:
+    paths:
+      - '**/*.py'
+      - 'requirements.txt'
       - '.github/workflows/code_linter.yml'
 
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.ref_name }}
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.13'
 
@@ -26,16 +34,71 @@ jobs:
         run: |
           pip install --no-cache-dir uv
           uv pip install --no-cache-dir torch==2.11.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cpu -q --system
-          uv pip install --no-cache-dir flake8 pylint vulture -r requirements.txt -q --system
+          uv pip install --no-cache-dir flake8 pylint vulture ruff -r requirements.txt -q --system
 
+      # continue-on-error: накопленных замечаний слишком много для блокирующей проверки
       - name: Run flake8
-        run: flake8 $(git ls-files '*.py') --max-line-length 140 --max-doc-length 140 --doctests --statistics
+        id: flake8
         continue-on-error: true
+        run: |
+          flake8 $(git ls-files '*.py') --max-line-length 140 --max-doc-length 140 --doctests --statistics 2>&1 | tee flake8.log
 
       - name: Run PyLint
-        run: pylint $(git ls-files '*.py') --max-line-length 140 --disable=R0801
+        id: pylint
         continue-on-error: true
+        run: |
+          pylint $(git ls-files '*.py') --max-line-length 140 --disable=R0801 2>&1 | tee pylint.log
 
       - name: Run Vulture
-        run: vulture $(git ls-files '*.py')
+        id: vulture
         continue-on-error: true
+        run: |
+          vulture $(git ls-files '*.py') 2>&1 | tee vulture.log
+
+      - name: Run Ruff (правила из ruff.toml)
+        id: ruff
+        continue-on-error: true
+        run: |
+          ruff check . --statistics 2>&1 | tee ruff.log
+
+      - name: Критичные ошибки Ruff (pyflakes/синтаксис)
+        run: |
+          ruff check --select F,E9 .
+
+      - name: Сводка линтеров
+        if: ${{ always() }}
+        env:
+          RES_FLAKE8: ${{ steps.flake8.outcome }}
+          RES_PYLINT: ${{ steps.pylint.outcome }}
+          RES_VULTURE: ${{ steps.vulture.outcome }}
+          RES_RUFF: ${{ steps.ruff.outcome }}
+        run: |
+          # grep -c возвращает 1 при нуле совпадений, поэтому || true
+          count_lines() { if [ -f "$1" ]; then grep -cve '^[[:space:]]*$' "$1" || true; else echo 0; fi; }
+
+          {
+            echo "## Результат линтеров"
+            echo
+            echo "| Инструмент | Исход | Строк вывода |"
+            echo "|---|---|---|"
+            echo "| flake8 | $RES_FLAKE8 | $(count_lines flake8.log) |"
+            echo "| pylint | $RES_PYLINT | $(count_lines pylint.log) |"
+            echo "| vulture | $RES_VULTURE | $(count_lines vulture.log) |"
+            echo "| ruff (select = ALL) | $RES_RUFF | $(count_lines ruff.log) |"
+            echo
+            echo "<details><summary>Ruff: статистика по правилам</summary>"
+            echo
+            echo '```'
+            [ -f ruff.log ] && head -40 ruff.log
+            echo '```'
+            echo
+            echo "</details>"
+            echo
+            echo "<details><summary>Vulture: мёртвый код</summary>"
+            echo
+            echo '```'
+            [ -f vulture.log ] && head -40 vulture.log
+            echo '```'
+            echo
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"

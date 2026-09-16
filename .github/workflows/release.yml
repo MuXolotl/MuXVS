@@ -10,6 +10,10 @@ on:
         description: 'Version to release (e.g., 1.4.0, 1.4.0-beta.1)'
         required: true
         type: string
+      hf_repo:
+        description: 'HuggingFace repo for builds (owner/name)'
+        type: string
+        default: 'MuXolotl/MuXVS'
       build_windows:
         description: 'Build Windows (CUDA)'
         type: boolean
@@ -37,7 +41,8 @@ permissions:
 
 env:
   PYTHON_VERSION: '3.11'
-  HF_REPO: 'Politrees/PolGen'
+  # репозиторий HuggingFace для сборок, переопределяется параметром hf_repo
+  HF_REPO: ${{ github.event.inputs.hf_repo || 'MuXolotl/MuXVS' }}
 
 jobs:
   # ═══════════════════════════════════════════════════════════════
@@ -60,9 +65,9 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
-          ref: PolGen
+          ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: true
           fetch-depth: 0
@@ -118,9 +123,9 @@ jobs:
       - name: Update README.md download links
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
-          sed -i -E "s|/Windows/PolGen-[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?_Windows_CUDA\.zip|/Windows/PolGen-${VERSION}_Windows_CUDA.zip|g" README.md
-          sed -i -E "s|/Linux/PolGen-[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?_Linux_CUDA\.zip|/Linux/PolGen-${VERSION}_Linux_CUDA.zip|g" README.md
-          sed -i -E "s|/MacOS/PolGen-[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?_MacOS\.zip|/MacOS/PolGen-${VERSION}_MacOS.zip|g" README.md
+          sed -i -E "s|/Windows/MuXVS-[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?_Windows_CUDA\.zip|/Windows/MuXVS-${VERSION}_Windows_CUDA.zip|g" README.md
+          sed -i -E "s|/Linux/MuXVS-[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?_Linux_CUDA\.zip|/Linux/MuXVS-${VERSION}_Linux_CUDA.zip|g" README.md
+          sed -i -E "s|/MacOS/MuXVS-[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?_MacOS\.zip|/MacOS/MuXVS-${VERSION}_MacOS.zip|g" README.md
 
       - name: Commit and push version changes
         run: |
@@ -131,7 +136,7 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "chore: bump version to ${{ steps.get_version.outputs.version }}"
-            git push origin HEAD:PolGen
+            git push origin HEAD:main
           fi
 
   # ═══════════════════════════════════════════════════════════════
@@ -147,16 +152,14 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          ref: PolGen
+        uses: actions/checkout@v7
 
       - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           auto-update-conda: true
           python-version: ${{ env.PYTHON_VERSION }}
-          activate-environment: polgen-env
+          activate-environment: muxvs-env
 
       - name: Create environment and install dependencies
         shell: bash -el {0}
@@ -198,8 +201,8 @@ jobs:
       - name: Create archive
         shell: powershell
         run: |
-          $archiveName = "PolGen-${{ env.VERSION }}_Windows_CUDA.zip"
-          $tempDir = "PolGen-${{ env.VERSION }}_Windows_CUDA"
+          $archiveName = "MuXVS-${{ env.VERSION }}_Windows_CUDA.zip"
+          $tempDir = "MuXVS-${{ env.VERSION }}_Windows_CUDA"
           
           New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
           
@@ -213,14 +216,16 @@ jobs:
             Where-Object { $_.Name -match '^\.git|^__pycache__|\.ipynb_checkpoints' } | 
             Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
           
-          Compress-Archive -Path $tempDir -DestinationPath $archiveName -Force
+          # Compress-Archive в PowerShell 5.1 не умеет архивы больше 2 ГБ
+          & 7z a -tzip -mx=1 $archiveName $tempDir | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "7z не смог собрать архив (код $LASTEXITCODE)" }
           Remove-Item -Path $tempDir -Recurse -Force
           
           $sizeGB = [math]::Round((Get-Item $archiveName).Length / 1GB, 2)
           Write-Host "Created: $archiveName ($sizeGB GB)"
 
       - name: Setup Python for upload
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -238,9 +243,13 @@ jobs:
           version = os.environ["VERSION"]
           repo_id = os.environ["HF_REPO"]
           token = os.environ["HF_TOKEN"]
-          filename = f"PolGen-{version}_Windows_CUDA.zip"
+          filename = f"MuXVS-{version}_Windows_CUDA.zip"
           
-          if os.path.exists(filename):
+          if not token:
+              print("HF_TOKEN не задан — выгрузка в HuggingFace пропущена.")
+          elif not os.path.exists(filename):
+              raise SystemExit(f"::error::Сборка {filename} не найдена — выгружать нечего.")
+          else:
               size_gb = os.path.getsize(filename) / (1024 ** 3)
               print(f"Uploading {filename} ({size_gb:.2f} GB)...")
               api.upload_file(
@@ -249,7 +258,7 @@ jobs:
                   repo_id=repo_id,
                   repo_type="model",
                   token=token,
-                  commit_message=f"Upload PolGen v{version} for Windows (CUDA)"
+                  commit_message=f"Upload MuXVS v{version} for Windows (CUDA)"
               )
               print("Done!")
           EOF
@@ -267,16 +276,14 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          ref: PolGen
+        uses: actions/checkout@v7
 
       - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           auto-update-conda: true
           python-version: ${{ env.PYTHON_VERSION }}
-          activate-environment: polgen-env
+          activate-environment: muxvs-env
 
       - name: Create environment and install dependencies (CPU)
         shell: bash -el {0}
@@ -318,8 +325,8 @@ jobs:
       - name: Create archive
         shell: powershell
         run: |
-          $archiveName = "PolGen-${{ env.VERSION }}_Windows_CPU.zip"
-          $tempDir = "PolGen-${{ env.VERSION }}_Windows_CPU"
+          $archiveName = "MuXVS-${{ env.VERSION }}_Windows_CPU.zip"
+          $tempDir = "MuXVS-${{ env.VERSION }}_Windows_CPU"
           
           New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
           
@@ -333,14 +340,16 @@ jobs:
             Where-Object { $_.Name -match '^\.git|^__pycache__|\.ipynb_checkpoints' } | 
             Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
           
-          Compress-Archive -Path $tempDir -DestinationPath $archiveName -Force
+          # Compress-Archive в PowerShell 5.1 не умеет архивы больше 2 ГБ
+          & 7z a -tzip -mx=1 $archiveName $tempDir | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "7z не смог собрать архив (код $LASTEXITCODE)" }
           Remove-Item -Path $tempDir -Recurse -Force
           
           $sizeGB = [math]::Round((Get-Item $archiveName).Length / 1GB, 2)
           Write-Host "Created: $archiveName ($sizeGB GB)"
 
       - name: Setup Python for upload
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -358,9 +367,13 @@ jobs:
           version = os.environ["VERSION"]
           repo_id = os.environ["HF_REPO"]
           token = os.environ["HF_TOKEN"]
-          filename = f"PolGen-{version}_Windows_CPU.zip"
+          filename = f"MuXVS-{version}_Windows_CPU.zip"
           
-          if os.path.exists(filename):
+          if not token:
+              print("HF_TOKEN не задан — выгрузка в HuggingFace пропущена.")
+          elif not os.path.exists(filename):
+              raise SystemExit(f"::error::Сборка {filename} не найдена — выгружать нечего.")
+          else:
               size_gb = os.path.getsize(filename) / (1024 ** 3)
               print(f"Uploading {filename} ({size_gb:.2f} GB)...")
               api.upload_file(
@@ -369,7 +382,7 @@ jobs:
                   repo_id=repo_id,
                   repo_type="model",
                   token=token,
-                  commit_message=f"Upload PolGen v{version} for Windows (CPU)"
+                  commit_message=f"Upload MuXVS v{version} for Windows (CPU)"
               )
               print("Done!")
           EOF
@@ -393,16 +406,14 @@ jobs:
           sudo apt-get clean
 
       - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          ref: PolGen
+        uses: actions/checkout@v7
 
       - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           auto-update-conda: true
           python-version: ${{ env.PYTHON_VERSION }}
-          activate-environment: polgen-env
+          activate-environment: muxvs-env
 
       - name: Create environment and install dependencies
         shell: bash -el {0}
@@ -444,8 +455,8 @@ jobs:
 
       - name: Create archive
         run: |
-          ARCHIVE_NAME="PolGen-${{ env.VERSION }}_Linux_CUDA.zip"
-          TEMP_DIR="PolGen-${{ env.VERSION }}_Linux_CUDA"
+          ARCHIVE_NAME="MuXVS-${{ env.VERSION }}_Linux_CUDA.zip"
+          TEMP_DIR="MuXVS-${{ env.VERSION }}_Linux_CUDA"
           
           mkdir -p "$TEMP_DIR"
           rsync -a . "$TEMP_DIR" \
@@ -472,9 +483,13 @@ jobs:
           version = os.environ["VERSION"]
           repo_id = os.environ["HF_REPO"]
           token = os.environ["HF_TOKEN"]
-          filename = f"PolGen-{version}_Linux_CUDA.zip"
+          filename = f"MuXVS-{version}_Linux_CUDA.zip"
           
-          if os.path.exists(filename):
+          if not token:
+              print("HF_TOKEN не задан — выгрузка в HuggingFace пропущена.")
+          elif not os.path.exists(filename):
+              raise SystemExit(f"::error::Сборка {filename} не найдена — выгружать нечего.")
+          else:
               size_gb = os.path.getsize(filename) / (1024 ** 3)
               print(f"Uploading {filename} ({size_gb:.2f} GB)...")
               api.upload_file(
@@ -483,7 +498,7 @@ jobs:
                   repo_id=repo_id,
                   repo_type="model",
                   token=token,
-                  commit_message=f"Upload PolGen v{version} for Linux (CUDA)"
+                  commit_message=f"Upload MuXVS v{version} for Linux (CUDA)"
               )
               print("Done!")
           EOF
@@ -507,16 +522,14 @@ jobs:
           sudo apt-get clean
 
       - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          ref: PolGen
+        uses: actions/checkout@v7
 
       - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           auto-update-conda: true
           python-version: ${{ env.PYTHON_VERSION }}
-          activate-environment: polgen-env
+          activate-environment: muxvs-env
 
       - name: Create environment and install dependencies (CPU)
         shell: bash -el {0}
@@ -558,8 +571,8 @@ jobs:
 
       - name: Create archive
         run: |
-          ARCHIVE_NAME="PolGen-${{ env.VERSION }}_Linux_CPU.zip"
-          TEMP_DIR="PolGen-${{ env.VERSION }}_Linux_CPU"
+          ARCHIVE_NAME="MuXVS-${{ env.VERSION }}_Linux_CPU.zip"
+          TEMP_DIR="MuXVS-${{ env.VERSION }}_Linux_CPU"
           
           mkdir -p "$TEMP_DIR"
           rsync -a . "$TEMP_DIR" \
@@ -586,9 +599,13 @@ jobs:
           version = os.environ["VERSION"]
           repo_id = os.environ["HF_REPO"]
           token = os.environ["HF_TOKEN"]
-          filename = f"PolGen-{version}_Linux_CPU.zip"
+          filename = f"MuXVS-{version}_Linux_CPU.zip"
           
-          if os.path.exists(filename):
+          if not token:
+              print("HF_TOKEN не задан — выгрузка в HuggingFace пропущена.")
+          elif not os.path.exists(filename):
+              raise SystemExit(f"::error::Сборка {filename} не найдена — выгружать нечего.")
+          else:
               size_gb = os.path.getsize(filename) / (1024 ** 3)
               print(f"Uploading {filename} ({size_gb:.2f} GB)...")
               api.upload_file(
@@ -597,7 +614,7 @@ jobs:
                   repo_id=repo_id,
                   repo_type="model",
                   token=token,
-                  commit_message=f"Upload PolGen v{version} for Linux (CPU)"
+                  commit_message=f"Upload MuXVS v{version} for Linux (CPU)"
               )
               print("Done!")
           EOF
@@ -615,16 +632,14 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          ref: PolGen
+        uses: actions/checkout@v7
 
       - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           auto-update-conda: true
           python-version: ${{ env.PYTHON_VERSION }}
-          activate-environment: polgen-env
+          activate-environment: muxvs-env
 
       - name: Create environment and install dependencies
         shell: bash -el {0}
@@ -662,8 +677,8 @@ jobs:
 
       - name: Create archive
         run: |
-          ARCHIVE_NAME="PolGen-${{ env.VERSION }}_MacOS.zip"
-          TEMP_DIR="PolGen-${{ env.VERSION }}_MacOS"
+          ARCHIVE_NAME="MuXVS-${{ env.VERSION }}_MacOS.zip"
+          TEMP_DIR="MuXVS-${{ env.VERSION }}_MacOS"
           
           mkdir -p "$TEMP_DIR"
           rsync -a . "$TEMP_DIR" \
@@ -690,9 +705,13 @@ jobs:
           version = os.environ["VERSION"]
           repo_id = os.environ["HF_REPO"]
           token = os.environ["HF_TOKEN"]
-          filename = f"PolGen-{version}_MacOS.zip"
+          filename = f"MuXVS-{version}_MacOS.zip"
           
-          if os.path.exists(filename):
+          if not token:
+              print("HF_TOKEN не задан — выгрузка в HuggingFace пропущена.")
+          elif not os.path.exists(filename):
+              raise SystemExit(f"::error::Сборка {filename} не найдена — выгружать нечего.")
+          else:
               size_gb = os.path.getsize(filename) / (1024 ** 3)
               print(f"Uploading {filename} ({size_gb:.2f} GB)...")
               api.upload_file(
@@ -701,7 +720,7 @@ jobs:
                   repo_id=repo_id,
                   repo_type="model",
                   token=token,
-                  commit_message=f"Upload PolGen v{version} for MacOS"
+                  commit_message=f"Upload MuXVS v{version} for MacOS"
               )
               print("Done!")
           EOF
@@ -723,9 +742,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          ref: PolGen
+        uses: actions/checkout@v7
 
       - name: Generate release notes
         run: |
@@ -752,19 +769,19 @@ jobs:
           #### 🖥️ Windows
           | Версия | Ссылка | Описание |
           |--------|--------|----------|
-          | **CUDA** | [📦 PolGen-${VERSION}_Windows_CUDA.zip](https://huggingface.co/${HF_REPO}/resolve/main/Windows/PolGen-${VERSION}_Windows_CUDA.zip?download=true) | Для NVIDIA GPU (рекомендуется) |
-          | **CPU** | [📦 PolGen-${VERSION}_Windows_CPU.zip](https://huggingface.co/${HF_REPO}/resolve/main/Windows/PolGen-${VERSION}_Windows_CPU.zip?download=true) | Для AMD GPU / без GPU |
+          | **CUDA** | [📦 MuXVS-${VERSION}_Windows_CUDA.zip](https://huggingface.co/${HF_REPO}/resolve/main/Windows/MuXVS-${VERSION}_Windows_CUDA.zip?download=true) | Для NVIDIA GPU (рекомендуется) |
+          | **CPU** | [📦 MuXVS-${VERSION}_Windows_CPU.zip](https://huggingface.co/${HF_REPO}/resolve/main/Windows/MuXVS-${VERSION}_Windows_CPU.zip?download=true) | Для AMD GPU / без GPU |
           
           #### 🐧 Linux
           | Версия | Ссылка | Описание |
           |--------|--------|----------|
-          | **CUDA** | [📦 PolGen-${VERSION}_Linux_CUDA.zip](https://huggingface.co/${HF_REPO}/resolve/main/Linux/PolGen-${VERSION}_Linux_CUDA.zip?download=true) | Для NVIDIA GPU (рекомендуется) |
-          | **CPU** | [📦 PolGen-${VERSION}_Linux_CPU.zip](https://huggingface.co/${HF_REPO}/resolve/main/Linux/PolGen-${VERSION}_Linux_CPU.zip?download=true) | Для AMD GPU / без GPU |
+          | **CUDA** | [📦 MuXVS-${VERSION}_Linux_CUDA.zip](https://huggingface.co/${HF_REPO}/resolve/main/Linux/MuXVS-${VERSION}_Linux_CUDA.zip?download=true) | Для NVIDIA GPU (рекомендуется) |
+          | **CPU** | [📦 MuXVS-${VERSION}_Linux_CPU.zip](https://huggingface.co/${HF_REPO}/resolve/main/Linux/MuXVS-${VERSION}_Linux_CPU.zip?download=true) | Для AMD GPU / без GPU |
           
           #### 🍎 MacOS
           | Версия | Ссылка | Описание |
           |--------|--------|----------|
-          | **MPS/CPU** | [📦 PolGen-${VERSION}_MacOS.zip](https://huggingface.co/${HF_REPO}/resolve/main/MacOS/PolGen-${VERSION}_MacOS.zip?download=true) | Apple Silicon (MPS) / Intel |
+          | **MPS/CPU** | [📦 MuXVS-${VERSION}_MacOS.zip](https://huggingface.co/${HF_REPO}/resolve/main/MacOS/MuXVS-${VERSION}_MacOS.zip?download=true) | Apple Silicon (MPS) / Intel |
           
           ---
           
@@ -772,7 +789,7 @@ jobs:
           
           - ✅ Python окружение с зависимостями
           - ✅ FFmpeg / FFprobe
-          - ✅ Модели RVC (rmvpe.pt, hubert_base.pt)
+          - ✅ Модели RVC (rmvpe.pt, hpa-rmvpe.pt, contentvec_base.pt)
           - ✅ Модели FlashSR
           
           ---
@@ -782,8 +799,8 @@ jobs:
           1. Скачайте архив для вашей ОС
           2. Распакуйте в любое место
           3. Запустите:
-             - **Windows**: \`run-PolGen.bat\`
-             - **Linux/MacOS**: \`chmod +x run-PolGen.sh && ./run-PolGen.sh\`
+             - **Windows**: \`run-MuXVS.bat\`
+             - **Linux/MacOS**: \`chmod +x run-MuXVS.sh && ./run-MuXVS.sh\`
           
           ---
           
@@ -799,16 +816,16 @@ jobs:
           
           ---
           
-          📚 **Документация**: [README](https://github.com/Politrees/PolGen#readme)
-          🐛 **Сообщить о проблеме**: [Issues](https://github.com/Politrees/PolGen/issues)
+          📚 **Документация**: [README](https://github.com/MuXolotl/MuXVS#readme)
+          🐛 **Сообщить о проблеме**: [Issues](https://github.com/MuXolotl/MuXVS/issues)
           💬 **Telegram**: [Канал](https://t.me/pol1trees) | [Чат](https://t.me/+GMTP7hZqY0E4OGRi)
           NOTES_EOF
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.VERSION_TAG }}
-          name: PolGen ${{ env.VERSION_TAG }}
+          name: MuXVS ${{ env.VERSION_TAG }}
           body_path: release_notes.md
           draft: false
           prerelease: ${{ env.IS_PRERELEASE == 'true' }}

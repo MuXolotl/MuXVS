@@ -12,7 +12,6 @@ logging.basicConfig(level=logging.WARNING)
 warnings.filterwarnings("ignore")
 
 import numpy as np
-import soundfile as sf
 import torch
 from tqdm import tqdm
 
@@ -31,7 +30,7 @@ class DataPreprocessor:
     def __init__(self):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        # Настройки для F0
+        # Рабочая частота F0 и HuBERT — обе модели требуют 16 кГц
         self.sample_rate = 16000
         self.hop_size = 160
         self.f0_bin = 256
@@ -64,29 +63,19 @@ class DataPreprocessor:
         assert f0_coarse.max() <= 255 and f0_coarse.min() >= 1, (f0_coarse.max(), f0_coarse.min())
         return f0_coarse
 
-    def read_wave(self, wav_path):
-        """Чтение аудиофайла"""
-        wav, sr = sf.read(wav_path)
-        assert sr == 16000
-        feats = torch.from_numpy(wav).float()
-        if feats.dim() == 2:
-            feats = feats.mean(-1)
-        assert feats.dim() == 1
-        return feats.view(1, -1)
-
     def extract_features(self, wav_path):
         """Извлечение признаков HuBERT"""
-        feats = self.read_wave(wav_path).to(self.device)
-        padding_mask = torch.BoolTensor(feats.shape).fill_(False).to(self.device)
+        audio = load_audio(wav_path, self.sample_rate)
+        source = torch.from_numpy(audio).float().view(1, -1).to(self.device)
+        padding_mask = torch.zeros(source.shape, dtype=torch.bool, device=self.device)
 
         with torch.no_grad():
-            logits = self.hubert_model.extract_features(source=feats, padding_mask=padding_mask, output_layer=12)
+            logits = self.hubert_model.extract_features(source=source, padding_mask=padding_mask, output_layer=12)
             return logits[0].squeeze(0).float().cpu().numpy()
 
     def process_files(self):
         """Основной метод обработки файлов"""
-        # Подготовка путей
-        inp_root = f"{exp_dir}/data/sliced_audios_16k"
+        inp_root = f"{exp_dir}/data/sliced_audios"
         f0_quant_path = f"{exp_dir}/data/f0_quantized"
         f0_voiced_path = f"{exp_dir}/data/f0_voiced"
         features_path = f"{exp_dir}/data/features"
@@ -96,7 +85,7 @@ class DataPreprocessor:
         os.makedirs(features_path, exist_ok=True)
 
         # Сбор файлов для обработки
-        files = sorted([f for f in os.listdir(inp_root) if f.endswith(".wav") and "spec" not in f])
+        files = sorted(f for f in os.listdir(inp_root) if f.endswith(".wav"))
         if not files:
             self._raise_no_files_error()
 

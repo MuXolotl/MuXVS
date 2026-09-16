@@ -122,15 +122,15 @@ class VC:
         protect,
     ):
         """Преобразует аудио с использованием модели."""
-        feats = torch.from_numpy(audio0).float()
-        if feats.dim() == 2:
-            feats = feats.mean(-1)
-        assert feats.dim() == 1, feats.dim()
-        feats = feats.view(1, -1)
-        padding_mask = torch.BoolTensor(feats.shape).to(self.device).fill_(False)
+        source = torch.from_numpy(audio0).float()
+        if source.dim() == 2:
+            source = source.mean(-1)
+        assert source.dim() == 1, source.dim()
+        source = source.view(1, -1).to(self.device)
+        padding_mask = torch.zeros(source.shape, dtype=torch.bool, device=self.device)
 
         inputs = {
-            "source": feats.to(self.device),
+            "source": source,
             "padding_mask": padding_mask,
             "output_layer": 12,
         }

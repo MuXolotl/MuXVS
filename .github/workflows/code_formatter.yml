@@ -7,10 +7,53 @@ on:
     paths:
       - '**/*.py'
       - '.github/workflows/code_formatter.yml'
+  pull_request:
+    paths:
+      - '**/*.py'
+      - '.github/workflows/code_formatter.yml'
 
 jobs:
-  format_code:
+  check:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: pip install -U ruff
+
+      - name: Run Ruff Formatter (check)
+        run: ruff format --check .
+
+      - name: Run Ruff Linter (критичные правила)
+        run: ruff check --select F,E9 .
+
+      - name: Сводка по полному набору правил
+        if: ${{ always() }}
+        run: |
+          ruff check . --statistics > ruff_full.log 2>&1 || true
+          {
+            echo "## Ruff: статистика по правилам из \`ruff.toml\` (\`select = ALL\`)"
+            echo
+            echo '```'
+            head -40 ruff_full.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  format_code:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     permissions:
       contents: write
@@ -18,12 +61,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.ref_name }}
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.13'
 
@@ -44,10 +85,11 @@ jobs:
           else
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
           fi
+          git diff --stat >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Create Pull Request
         if: steps.changes.outputs.has_changes == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: "style(ruff): автоматическое форматирование кода"
           title: "🎨 Автоматическое форматирование кода"
@@ -60,5 +102,6 @@ jobs:
 
             ✨ Изменения затрагивают только стиль кода, логика работы не изменена.
             > Целевая версия Python: **3.13**
+          base: main
           branch: "formatter/${{ github.ref_name }}"
           delete-branch: true
