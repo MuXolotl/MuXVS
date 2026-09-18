@@ -75,14 +75,14 @@ class PreProcess:
         self.normalize = normalize  # Флаг для включения/выключения нормализации
 
     def norm_write(self, tmp_audio, idx0, idx1):
-        # Проверка на превышение максимального уровня сигнала
-        tmp_max = np.abs(tmp_audio).max()
-        if tmp_max > 2.5:
-            return 0  # Сегмент слишком громкий — пропускаем
-
-        # Применение нормализации к аудио и сохранение в WAV
         if self.normalize:
-            tmp_audio = (tmp_audio / tmp_max * (0.9 * 0.75)) + (1 - 0.75) * tmp_audio
+            tmp_max = np.abs(tmp_audio).max()
+            if tmp_max > 0:
+                tmp_audio = (tmp_audio / tmp_max * (0.9 * 0.75)) + (1 - 0.75) * tmp_audio
+                peak = np.abs(tmp_audio).max()
+                if peak > 1.0:
+                    tmp_audio = tmp_audio * (1.0 / peak)
+
         wavfile.write(f"{self.gt_wavs_dir}/{idx0}_{idx1}.wav", self.sample_rate, tmp_audio.astype(np.float32))
         return 1  # Сегмент записан
 

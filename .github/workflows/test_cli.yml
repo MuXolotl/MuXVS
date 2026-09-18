@@ -2,8 +2,6 @@ name: CLI Scripts Test
 
 on:
   push:
-    branches:
-      - main
     paths:
       - 'requirements.txt'
       - 'assets/**'
