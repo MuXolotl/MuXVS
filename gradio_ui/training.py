@@ -223,14 +223,13 @@ def training_tab():
     model_name = gr.Textbox(label="Имя модели", placeholder="MyVoice")
 
     with gr.Accordion("Подготовка данных", open=False):
-        with gr.Row():
-            with gr.Column(scale=1):
-                with gr.Group():
+        with gr.Group():
+            with gr.Row(equal_height=True):
+                with gr.Column(scale=1):
                     dataset_folder = gr.Textbox(label="Папка с датасетом", placeholder="/путь/к/аудио")
                     dataset_files = gr.File(label="…или загрузите файлы", file_count="multiple", height=260)
                     slice_btn = gr.Button("1. Нарезать", variant="primary")
-            with gr.Column(scale=1):
-                with gr.Group():
+                with gr.Column(scale=1):
                     with gr.Row(equal_height=True):
                         sample_rate = gr.Dropdown(SAMPLE_RATES, value=48000, label="Частота (Hz)")
                         f0_method = gr.Dropdown(F0_METHODS, value="rmvpe", label="Метод F0")
