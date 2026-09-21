@@ -196,26 +196,27 @@ def training_tab():
         model_name = gr.Textbox(label="Имя модели", placeholder="MyVoice", scale=3)
         sample_rate = gr.Dropdown(SAMPLE_RATES, value=48000, label="Частота (Hz)", scale=1)
 
-    with gr.Row():
-        with gr.Column(scale=1):
-            with gr.Group():
-                gr.Markdown("**Шаг 1 · Нарезка датасета**")
-                dataset_folder = gr.Textbox(label="Папка с датасетом", placeholder="/путь/к/аудио")
-                dataset_files = gr.File(label="…или загрузите файлы", file_count="multiple", height=180)
-                slice_btn = gr.Button("Нарезать", variant="primary")
-        with gr.Column(scale=1):
-            with gr.Group():
-                gr.Markdown("**Настройки нарезки**")
-                with gr.Row():
-                    segment_len = gr.Slider(minimum=1.0, maximum=10.0, step=0.1, value=3.0, label="Сегмент (сек)")
-                    normalize = gr.Checkbox(value=True, label="Нормализация")
-            with gr.Group():
-                gr.Markdown("**Шаг 2 · Признаки (F0 + HuBERT)**")
-                with gr.Row():
-                    f0_method = gr.Dropdown(F0_METHODS, value="rmvpe", label="Метод F0")
-                    include_mutes = gr.Slider(minimum=0, maximum=10, step=1, value=2, label="Мьют-файлов")
-                extract_btn = gr.Button("Извлечь", variant="primary")
-                index_btn = gr.Button("Построить индекс")
+    with gr.Accordion("Подготовка данных", open=False):
+        with gr.Row(equal_height=True):
+            with gr.Column(scale=1):
+                with gr.Group():
+                    gr.Markdown("**Нарезка датасета**")
+                    dataset_folder = gr.Textbox(label="Папка с датасетом", placeholder="/путь/к/аудио")
+                    dataset_files = gr.File(label="…или загрузите файлы", file_count="multiple", height=180)
+                    slice_btn = gr.Button("Нарезать", variant="primary")
+            with gr.Column(scale=1):
+                with gr.Group():
+                    gr.Markdown("**Настройки нарезки**")
+                    with gr.Row(equal_height=True):
+                        segment_len = gr.Slider(minimum=1.0, maximum=10.0, step=0.1, value=3.0, label="Сегмент (сек)")
+                        normalize = gr.Checkbox(value=True, label="Нормализация")
+                with gr.Group():
+                    gr.Markdown("**Признаки (F0 + HuBERT)**")
+                    with gr.Row(equal_height=True):
+                        f0_method = gr.Dropdown(F0_METHODS, value="rmvpe", label="Метод F0")
+                        include_mutes = gr.Slider(minimum=0, maximum=10, step=1, value=2, label="Мьют-файлов")
+                    extract_btn = gr.Button("Извлечь", variant="primary")
+                    index_btn = gr.Button("Построить индекс")
 
     with gr.Group():
         gr.Markdown("**Обучение**")
