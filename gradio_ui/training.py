@@ -211,52 +211,48 @@ def training_tab():
     with gr.Accordion("Подготовка данных", open=False):
         with gr.Row(equal_height=True):
             with gr.Column(scale=1):
-                with gr.Group():
-                    dataset_folder = gr.Textbox(label="Папка с датасетом", placeholder="/путь/к/аудио")
-                    dataset_files = gr.File(label="…или загрузите файлы", file_count="multiple", height=300)
-                    slice_btn = gr.Button("Нарезать", variant="primary")
+                dataset_folder = gr.Textbox(label="Папка с датасетом", placeholder="/путь/к/аудио")
+                dataset_files = gr.File(label="…или загрузите файлы", file_count="multiple", height=260)
+                slice_btn = gr.Button("Нарезать", variant="primary")
             with gr.Column(scale=1):
-                with gr.Group():
-                    _section_title("Настройки обработки")
-                    segment_len = gr.Slider(minimum=1.0, maximum=10.0, step=0.1, value=3.0, label="Сегмент (сек)")
-                    with gr.Row(equal_height=True):
-                        normalize = gr.Checkbox(value=True, label="Нормализация")
-                        sample_rate = gr.Dropdown(SAMPLE_RATES, value=48000, label="Частота (Hz)")
-                with gr.Group():
-                    _section_title("Признаки (F0 + HuBERT)")
-                    with gr.Row(equal_height=True):
-                        f0_method = gr.Dropdown(F0_METHODS, value="rmvpe", label="Метод F0")
-                        include_mutes = gr.Slider(minimum=0, maximum=10, step=1, value=2, label="Мьют-файлов")
-                    extract_btn = gr.Button("Извлечь", variant="primary")
-                    index_btn = gr.Button("Построить индекс")
+                _section_title("Настройки обработки")
+                segment_len = gr.Slider(minimum=1.0, maximum=10.0, step=0.1, value=3.0, label="Сегмент (сек)")
+                with gr.Row(equal_height=True):
+                    normalize = gr.Checkbox(value=True, label="Нормализация")
+                    sample_rate = gr.Dropdown(SAMPLE_RATES, value=48000, label="Частота (Hz)")
+                _section_title("Признаки (F0 + HuBERT)")
+                with gr.Row(equal_height=True):
+                    f0_method = gr.Dropdown(F0_METHODS, value="rmvpe", label="Метод F0")
+                    include_mutes = gr.Slider(minimum=0, maximum=10, step=1, value=2, label="Мьют-файлов")
+                extract_btn = gr.Button("Извлечь", variant="primary")
+                index_btn = gr.Button("Построить индекс")
 
-    with gr.Group():
-        _section_title("Обучение")
-        _section_hint("checkpoint.pth", "tensorboard --logdir logs")
+    _section_title("Обучение")
+    _section_hint("checkpoint.pth", "tensorboard --logdir logs")
+    with gr.Row(equal_height=True):
+        total_epoch = gr.Slider(minimum=1, maximum=10000, step=1, value=300, label="Всего эпох")
+        save_every_epoch = gr.Slider(minimum=1, maximum=100, step=1, value=25, label="Сохранять каждые N")
+        batch_size = gr.Slider(minimum=1, maximum=128, step=1, value=8, label="Батч")
+    with gr.Accordion("Дополнительно", open=False):
         with gr.Row(equal_height=True):
-            total_epoch = gr.Slider(minimum=1, maximum=10000, step=1, value=300, label="Всего эпох")
-            save_every_epoch = gr.Slider(minimum=1, maximum=100, step=1, value=25, label="Сохранять каждые N")
-            batch_size = gr.Slider(minimum=1, maximum=128, step=1, value=8, label="Батч")
-        with gr.Accordion("Дополнительно", open=False):
-            with gr.Row(equal_height=True):
-                vocoder = gr.Dropdown(VOCODERS, value="HiFi-GAN", label="Вокодер")
-                optimizer = gr.Dropdown(OPTIMIZERS, value="AdamW", label="Оптимизатор")
-                gpus = gr.Textbox("0", label="GPU")
-            pretrain = gr.Dropdown(
-                PRETRAIN_CHOICES,
-                value="Default",
-                label="Претрейн",
-                info="Встроенный набор скачивается сам при старте обучения.",
-            )
-            with gr.Row(equal_height=True):
-                pretrain_g = gr.Textbox(label="Свой претрейн G", placeholder="Путь к .pth — вместо встроенного")
-                pretrain_d = gr.Textbox(label="Свой претрейн D", placeholder="Путь к .pth — вместо встроенного")
-            with gr.Row(equal_height=True):
-                save_to_zip = gr.Checkbox(False, label="Собрать ZIP в конце")
-                save_half = gr.Checkbox(True, label="Веса float16")
+            vocoder = gr.Dropdown(VOCODERS, value="HiFi-GAN", label="Вокодер")
+            optimizer = gr.Dropdown(OPTIMIZERS, value="AdamW", label="Оптимизатор")
+            gpus = gr.Textbox("0", label="GPU")
+        pretrain = gr.Dropdown(
+            PRETRAIN_CHOICES,
+            value="Default",
+            label="Претрейн",
+            info="Встроенный набор скачивается сам при старте обучения.",
+        )
         with gr.Row(equal_height=True):
-            train_btn = gr.Button("Запустить обучение", variant="primary")
-            stop_btn = gr.Button("Завершить процесс", variant="stop")
+            pretrain_g = gr.Textbox(label="Свой претрейн G", placeholder="Путь к .pth — вместо встроенного")
+            pretrain_d = gr.Textbox(label="Свой претрейн D", placeholder="Путь к .pth — вместо встроенного")
+        with gr.Row(equal_height=True):
+            save_to_zip = gr.Checkbox(False, label="Собрать ZIP в конце")
+            save_half = gr.Checkbox(True, label="Веса float16")
+    with gr.Row(equal_height=True):
+        train_btn = gr.Button("Запустить обучение", variant="primary")
+        stop_btn = gr.Button("Завершить процесс", variant="stop")
 
     log = gr.Textbox(label="Журнал", lines=12, max_lines=12)
 
