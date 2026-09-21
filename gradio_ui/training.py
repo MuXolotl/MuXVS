@@ -22,7 +22,16 @@ AUDIO_EXTENSIONS = (".wav", ".mp3", ".flac", ".ogg", ".opus", ".m4a", ".aac", ".
 
 def _section_title(text: str):
     """Заголовок секции с нормальными отступами (Markdown липнет к краям группы)."""
-    return gr.HTML(f"<div style='font-size:14px;font-weight:600;padding:8px 4px 10px;'>{text}</div>")
+    return gr.HTML(f"<div style='font-size:14px;font-weight:600;text-align:center;padding:2px 4px 6px;'>{text}</div>")
+
+
+def _section_hint(code1: str, code2: str):
+    """Центрированная подсказка под заголовком секции обучения."""
+    return gr.HTML(
+        "<div style='font-size:13px;opacity:0.85;text-align:center;padding:0 4px 8px;'>"
+        f"Если в папке модели есть <code>{code1}</code>, обучение продолжится с него. "
+        f"Метрики: <code>{code2}</code>.</div>",
+    )
 
 
 def _exp_dir(model_name: str) -> str:
@@ -204,7 +213,7 @@ def training_tab():
             with gr.Column(scale=1):
                 with gr.Group():
                     dataset_folder = gr.Textbox(label="Папка с датасетом", placeholder="/путь/к/аудио")
-                    dataset_files = gr.File(label="…или загрузите файлы", file_count="multiple", height=180)
+                    dataset_files = gr.File(label="…или загрузите файлы", file_count="multiple", height=300)
                     slice_btn = gr.Button("Нарезать", variant="primary")
             with gr.Column(scale=1):
                 with gr.Group():
@@ -223,10 +232,7 @@ def training_tab():
 
     with gr.Group():
         _section_title("Обучение")
-        gr.Markdown(
-            "Если в папке модели есть `checkpoint.pth`, обучение продолжится с него. "
-            "Метрики: `tensorboard --logdir logs`.",
-        )
+        _section_hint("checkpoint.pth", "tensorboard --logdir logs")
         with gr.Row(equal_height=True):
             total_epoch = gr.Slider(minimum=1, maximum=10000, step=1, value=300, label="Всего эпох")
             save_every_epoch = gr.Slider(minimum=1, maximum=100, step=1, value=25, label="Сохранять каждые N")
