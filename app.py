@@ -28,7 +28,6 @@ from gradio_ui.inference import conversion_tab
 from gradio_ui.models import models_tab
 from gradio_ui.tools import tools_tab
 from gradio_ui.training import training_tab
-from gradio_ui.tts import tts_tab
 
 # Constants
 DEFAULT_SERVER_NAME = "127.0.0.1"
@@ -94,11 +93,7 @@ with gr.Blocks(
     )
 
     with gr.Tab("Конвертация"):
-        conversion_tab()
-
-    if not is_offline_mode():
-        with gr.Tab("TTS"):
-            tts_tab()
+        conversion_tab(include_tts=not is_offline_mode())
 
     with gr.Tab(uvr_title):
         if uvr_ui is not None:

@@ -15,6 +15,7 @@ from gradio_ui.common import (
     swap_buttons,
     swap_visibility,
 )
+from gradio_ui.tts import tts_tab
 
 
 def _unique_batch_dir() -> str:
@@ -269,8 +270,11 @@ def _batch_conversion_tab():
     )
 
 
-def conversion_tab():
+def conversion_tab(include_tts=True):
     with gr.Tab("Одиночная конвертация"):
         _single_conversion_tab()
     with gr.Tab("Пакетная конвертация"):
         _batch_conversion_tab()
+    if include_tts:
+        with gr.Tab("TTS"):
+            tts_tab()
