@@ -4,10 +4,12 @@ import re
 import requests
 from tqdm import tqdm
 
+from assets.pretrains import BASE_URL as PRETRAINS_BASE_URL
+from assets.pretrains import PRETRAINS, pretrain_files, pretrain_rates, rate_label
+
 PREDICTORS = "https://huggingface.co/Politrees/RVC_resources/resolve/main/predictors/"
 EMBEDDERS = "https://huggingface.co/Politrees/RVC_resources/resolve/main/embedders/pytorch/"
 FLASH_SR = "https://huggingface.co/datasets/jakeoneijk/FlashSR_weights/resolve/main/"
-PRETRAINS = "https://huggingface.co/Politrees/RVC_resources/resolve/main/pretrained/v2/"
 
 PREDICTORS_DIR = os.path.join(os.getcwd(), "assets", "models", "predictors")
 EMBEDDERS_DIR = os.path.join(os.getcwd(), "assets", "models", "embedders")
@@ -20,44 +22,7 @@ os.makedirs(EMBEDDERS_DIR, exist_ok=True)
 os.makedirs(FLASH_SR_DIR, exist_ok=True)
 os.makedirs(PRETRAINS_DIR, exist_ok=True)
 
-# Встроенные претрейны: описание, шаблоны имён D/G файлов ({k} — частота вида 48k)
-# и частоты, для которых набор существует в репозитории.
-PRETRAIN_SETS = {
-    "Default": (
-        "Официальный претрейн RVC",
-        "Default/f0D{k}.pth",
-        "Default/f0G{k}.pth",
-        ("32k", "40k", "48k"),
-    ),
-    "Snowie v3.1": (
-        "Русский язык",
-        "Snowie/D_SnowieV3.1_{k}.pth",
-        "Snowie/G_SnowieV3.1_{k}.pth",
-        ("32k", "40k", "48k"),
-    ),
-    "TITAN-Medium": (
-        "Английский язык",
-        "TITAN/D-f0{k}-TITAN-Medium.pth",
-        "TITAN/G-f0{k}-TITAN-Medium.pth",
-        ("32k", "40k", "48k"),
-    ),
-    "KLM v4.3 x3": (
-        "Корейский язык",
-        "KLM/D_KLM43_X3_{k}.pth",
-        "KLM/G_KLM43_X3_{k}.pth",
-        ("32k", "40k", "48k"),
-    ),
-    "GuideVocalPretrain": (
-        "Только 48k",
-        "GuideVocalPretrain/D_GuideVocalPretrain.pth",
-        "GuideVocalPretrain/G_GuideVocalPretrain.pth",
-        ("48k",),
-    ),
-}
-NO_PRETRAIN = "Без претрейна"
 
-PRETRAIN_CHOICES = [(f"{name} — {desc}", name) for name, (desc, _, _, _) in PRETRAIN_SETS.items()]
-PRETRAIN_CHOICES.append((NO_PRETRAIN, NO_PRETRAIN))
 
 
 def dl_model(link, model_name, dir_name):
@@ -131,32 +96,28 @@ def download_with_progress(url, path):
     yield f"  ✓ {os.path.basename(path)} ({done // 1024 // 1024} МБ)"
 
 
-def pretrain_rates(choice):
-    """Частоты, для которых существует набор. Пусто — набор неизвестен."""
-    return PRETRAIN_SETS[choice][3] if choice in PRETRAIN_SETS else ()
-
-
 def ensure_pretrains(choice, sample_rate):
     """Скачивает претрейн при необходимости.
 
     Генератор: отдаёт строки для журнала, возвращает (путь G, путь D).
     Вызывать через `g, d = yield from ensure_pretrains(...)`.
     """
-    rate = f"{int(sample_rate) // 1000}k"
-    if choice not in PRETRAIN_SETS:
+    rate = rate_label(sample_rate)
+    if choice not in PRETRAINS:
         raise ValueError(f"Неизвестный претрейн: {choice}")
-    if rate not in PRETRAIN_SETS[choice][3]:
-        raise ValueError(f"Претрейн {choice} доступен только для {', '.join(PRETRAIN_SETS[choice][3])}.")
+    files = pretrain_files(choice, sample_rate)
+    if files is None:
+        raise ValueError(f"Претрейн {choice} доступен только для {', '.join(pretrain_rates(choice))}.")
 
-    _, d_template, g_template, _ = PRETRAIN_SETS[choice]
+    d_file, g_file = files
     safe_name = re.sub(r"[^\w\-.]", "_", choice)
     paths = {}
-    for kind, template in (("D", d_template), ("G", g_template)):
+    for kind, remote_file in (("D", d_file), ("G", g_file)):
         local_path = os.path.join(PRETRAINS_DIR, f"{safe_name}_{rate}_{kind}.pth")
         if os.path.isfile(local_path):
             yield f"  ✓ {os.path.basename(local_path)} уже установлен"
         else:
-            remote = f"{PRETRAINS}{rate}/{template.format(k=rate)}"
+            remote = f"{PRETRAINS_BASE_URL}{rate}/{remote_file}"
             yield f"⬇ Скачиваю {choice} ({rate}, {kind})…"
             yield from download_with_progress(remote, local_path)
         paths[kind] = local_path

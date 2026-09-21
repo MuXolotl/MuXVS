@@ -9,7 +9,8 @@ import shutil
 
 import gradio as gr
 
-from assets.model_installer import NO_PRETRAIN, PRETRAIN_CHOICES, ensure_pretrains
+from assets.model_installer import ensure_pretrains
+from assets.pretrains import DEFAULT_PRETRAIN, NO_PRETRAIN, pretrain_choices
 from gradio_ui.jobs import command, request_stop, run_job
 
 LOGS_DIR = os.path.join(os.getcwd(), "logs")
@@ -68,6 +69,12 @@ def _step_states(model_name):
         gr.update(interactive=slices_done and not features_done),
         gr.update(interactive=features_done and not index_done),
     )
+
+
+def _refresh_pretrains(sample_rate, current):
+    """Список претрейнов под выбранную частоту; чужой выбор сбрасывается."""
+    choices = pretrain_choices(sample_rate)
+    return gr.update(choices=choices, value=current if current in choices else DEFAULT_PRETRAIN)
 
 
 def _input_root(model_name: str, files, folder: str) -> str:
@@ -264,15 +271,19 @@ def training_tab():
                 vocoder = gr.Dropdown(VOCODERS, value="HiFi-GAN", label="Вокодер")
                 optimizer = gr.Dropdown(OPTIMIZERS, value="AdamW", label="Оптимизатор")
                 gpus = gr.Textbox("0", label="GPU")
-            pretrain = gr.Dropdown(
-                PRETRAIN_CHOICES,
-                value="Default",
-                label="Претрейн",
-                info="Встроенный набор скачивается сам при старте обучения.",
-            )
             with gr.Row(equal_height=True):
-                pretrain_g = gr.Textbox(label="Свой претрейн G", placeholder="Путь к .pth — вместо встроенного")
-                pretrain_d = gr.Textbox(label="Свой претрейн D", placeholder="Путь к .pth — вместо встроенного")
+                pretrain = gr.Dropdown(
+                    pretrain_choices(48000),
+                    value=DEFAULT_PRETRAIN,
+                    label="Претрейн",
+                    scale=2,
+                )
+                pretrain_g = gr.Textbox(
+                    label="Свой претрейн G", placeholder="Путь к .pth — вместо встроенного", scale=3
+                )
+                pretrain_d = gr.Textbox(
+                    label="Свой претрейн D", placeholder="Путь к .pth — вместо встроенного", scale=3
+                )
             with gr.Row(equal_height=True):
                 save_to_zip = gr.Checkbox(False, label="Собрать ZIP в конце")
                 save_half = gr.Checkbox(True, label="Веса float16")
@@ -284,6 +295,7 @@ def training_tab():
 
     step_buttons = [slice_btn, extract_btn, index_btn]
     model_name.change(_step_states, inputs=model_name, outputs=step_buttons, api_name=False)
+    sample_rate.change(_refresh_pretrains, inputs=[sample_rate, pretrain], outputs=pretrain, api_name=False)
     slice_btn.click(
         _slice_dataset,
         inputs=[model_name, dataset_files, dataset_folder, sample_rate, segment_len, normalize],
