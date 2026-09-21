@@ -276,13 +276,13 @@ def training_tab():
                     pretrain_choices(48000),
                     value=DEFAULT_PRETRAIN,
                     label="Претрейн",
-                    scale=2,
+                    scale=1,
                 )
                 pretrain_g = gr.Textbox(
-                    label="Свой претрейн G", placeholder="Путь к .pth — вместо встроенного", scale=3
+                    label="Свой претрейн G", placeholder="Путь к .pth — вместо встроенного", scale=2
                 )
                 pretrain_d = gr.Textbox(
-                    label="Свой претрейн D", placeholder="Путь к .pth — вместо встроенного", scale=3
+                    label="Свой претрейн D", placeholder="Путь к .pth — вместо встроенного", scale=2
                 )
             with gr.Row(equal_height=True):
                 save_to_zip = gr.Checkbox(False, label="Собрать ZIP в конце")
