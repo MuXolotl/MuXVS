@@ -1,8 +1,31 @@
-"""Вкладка «Конвертация»: замена голоса в одном файле или пакетно."""
+"""Вкладка «Конвертация»: одиночная и пакетная замена голоса (классический вид)."""
+
+import os
+from datetime import datetime
 
 import gradio as gr
 
-from gradio_ui.common import F0_METHODS, OUTPUT_FORMATS, RVC_OUTPUT_DIR, conversion_settings, model_row
+from gradio_ui.common import (
+    OUTPUT_FORMATS,
+    RVC_OUTPUT_DIR,
+    conversion_settings,
+    model_select,
+    pitch_group,
+    process_file_upload,
+    swap_buttons,
+    swap_visibility,
+)
+
+
+def _unique_batch_dir() -> str:
+    """Новая подпапка пакета внутри общей папки вывода; повторы исключены."""
+    stamp = datetime.now().strftime("batch_%Y%m%d_%H%M%S")
+    target = os.path.join(RVC_OUTPUT_DIR, stamp)
+    num = 2
+    while os.path.exists(target):
+        target = os.path.join(RVC_OUTPUT_DIR, f"{stamp}_{num}")
+        num += 1
+    return target
 
 
 def _convert(
@@ -55,7 +78,6 @@ def _convert_batch(
     rvc_model,
     dir_input,
     files,
-    output_dir,
     f0_method,
     rvc_pitch,
     output_format,
@@ -80,7 +102,7 @@ def _convert_batch(
         rvc_model=rvc_model,
         dir_input=dir_input,
         files=files,
-        output_dir=output_dir,
+        output_dir=_unique_batch_dir(),
         f0_method=f0_method,
         f0_min=f0_min,
         f0_max=f0_max,
@@ -101,53 +123,154 @@ def _convert_batch(
     )
 
 
-def conversion_tab():
-    rvc_model = model_row()
-
+def _single_conversion_tab():
     with gr.Row():
-        with gr.Column(scale=1):
-            input_audio = gr.Audio(label="Исходное аудио", type="filepath")
-            with gr.Row():
-                rvc_pitch = gr.Slider(minimum=-24, maximum=24, step=1, value=0, label="Тон (полутоны)")
-                f0_method = gr.Dropdown(F0_METHODS, value="rmvpe", label="Метод F0")
-        with gr.Column(scale=1):
-            convert_btn = gr.Button("Конвертировать", variant="primary")
-            output_audio = gr.Audio(label="Результат", interactive=False)
-            output_format = gr.Dropdown(OUTPUT_FORMATS, value="mp3", label="Формат", scale=1)
+        with gr.Column(scale=1, variant="panel"):
+            rvc_model = model_select()
+            autopitch, autopitch_threshold, rvc_pitch = pitch_group()
 
-    settings = conversion_settings(pitch=rvc_pitch)
+        with gr.Column(scale=2, variant="panel"):
+            with gr.Column() as upload_file:
+                local_file = gr.Audio(
+                    label="Аудио",
+                    type="filepath",
+                    show_download_button=False,
+                )
 
-    with gr.Accordion("Пакетная конвертация", open=False):
-        gr.Markdown("Папка и/или несколько файлов. Используются модель и настройки выше.")
-        with gr.Row():
-            dir_input = gr.Textbox(label="Папка с аудио", placeholder="/путь/к/папке", scale=2)
-            output_dir = gr.Textbox(label="Папка результата", value=RVC_OUTPUT_DIR, scale=2)
-        batch_files = gr.File(label="…или прикрепите файлы", file_count="multiple", height=180)
-        with gr.Row(equal_height=True):
-            batch_btn = gr.Button("Конвертировать пакет", variant="primary", scale=1)
-            batch_info = gr.Textbox(label="Результат", lines=6, scale=2)
+            with gr.Column(visible=False) as enter_local_file:
+                song_input = gr.Textbox(
+                    label="Путь к файлу:",
+                    info="Введите полный путь к файлу.",
+                )
 
-    shared_inputs = [
-        f0_method,
-        rvc_pitch,
-        output_format,
-        settings["index_rate"],
-        settings["protect"],
-        settings["volume_envelope"],
-        settings["f0_min"],
-        settings["f0_max"],
-        settings["autopitch"],
-        settings["autopitch_threshold"],
-        settings["autotune"],
-        settings["autotune_tonic"],
-        settings["autotune_scale"],
-        settings["autotune_strength"],
-        settings["stereo_sound"],
-        settings["audio_upscaling"],
-    ]
-    convert_btn.click(_convert, inputs=[rvc_model, input_audio, *shared_inputs], outputs=output_audio)
+            with gr.Column():
+                show_upload_button = gr.Button(
+                    value="Загрузить файл с устройства",
+                    visible=False,
+                )
+                show_enter_button = gr.Button(value="Ввести путь к файлу")
+
+    with gr.Group(), gr.Row(equal_height=True):
+        generate_btn = gr.Button(
+            value="Генерировать",
+            variant="primary",
+            scale=2,
+        )
+        converted_voice = gr.Audio(
+            label="Преобразованный голос",
+            show_download_button=True,
+            interactive=False,
+            scale=9,
+        )
+        with gr.Column(min_width=160):
+            output_format = gr.Dropdown(
+                value="mp3",
+                label="Формат файла",
+                choices=OUTPUT_FORMATS,
+            )
+
+    settings = conversion_settings()
+
+    # Загрузка файлов
+    local_file.change(process_file_upload, inputs=local_file, outputs=[song_input, local_file], api_name=False)
+
+    # Обновление кнопок
+    show_upload_button.click(
+        swap_visibility, outputs=[upload_file, enter_local_file, song_input, local_file], api_name=False
+    )
+    show_enter_button.click(
+        swap_visibility, outputs=[enter_local_file, upload_file, song_input, local_file], api_name=False
+    )
+    show_upload_button.click(swap_buttons, outputs=[show_upload_button, show_enter_button], api_name=False)
+    show_enter_button.click(swap_buttons, outputs=[show_enter_button, show_upload_button], api_name=False)
+
+    # Обновление списка моделей — внутри model_select(); авто-тон — внутри pitch_group().
+
+    # Запуск процесса преобразования
+    generate_btn.click(
+        _convert,
+        inputs=[
+            rvc_model,
+            song_input,
+            settings["f0_method"],
+            rvc_pitch,
+            output_format,
+            settings["index_rate"],
+            settings["protect"],
+            settings["volume_envelope"],
+            settings["f0_min"],
+            settings["f0_max"],
+            autopitch,
+            autopitch_threshold,
+            settings["autotune"],
+            settings["autotune_tonic"],
+            settings["autotune_scale"],
+            settings["autotune_strength"],
+            settings["stereo_sound"],
+            settings["audio_upscaling"],
+        ],
+        outputs=[converted_voice],
+    )
+
+
+def _batch_conversion_tab():
+    with gr.Row():
+        with gr.Column(scale=1, variant="panel"):
+            rvc_model = model_select()
+            autopitch, autopitch_threshold, rvc_pitch = pitch_group()
+
+        with gr.Column(scale=2, variant="panel"):
+            dir_input = gr.Textbox(
+                label="Папка с аудио:",
+                info="Введите полный путь к папке с аудиофайлами.",
+            )
+            batch_files = gr.File(label="…или прикрепите файлы", file_count="multiple", height=180)
+
+    with gr.Group(), gr.Row(equal_height=True):
+        batch_btn = gr.Button(
+            value="Генерировать пакет",
+            variant="primary",
+            scale=2,
+        )
+        batch_info = gr.Textbox(label="Результат", lines=8, scale=9)
+        with gr.Column(min_width=160):
+            output_format = gr.Dropdown(
+                value="mp3",
+                label="Формат файла",
+                choices=OUTPUT_FORMATS,
+            )
+
+    settings = conversion_settings()
+
     batch_btn.click(
         _convert_batch,
-        inputs=[rvc_model, dir_input, batch_files, output_dir, *shared_inputs],
-        outputs=batch_info,
+        inputs=[
+            rvc_model,
+            dir_input,
+            batch_files,
+            settings["f0_method"],
+            rvc_pitch,
+            output_format,
+            settings["index_rate"],
+            settings["protect"],
+            settings["volume_envelope"],
+            settings["f0_min"],
+            settings["f0_max"],
+            autopitch,
+            autopitch_threshold,
+            settings["autotune"],
+            settings["autotune_tonic"],
+            settings["autotune_scale"],
+            settings["autotune_strength"],
+            settings["stereo_sound"],
+            settings["audio_upscaling"],
+        ],
+        outputs=[batch_info],
     )
+
+
+def conversion_tab():
+    with gr.Tab("Одиночная конвертация"):
+        _single_conversion_tab()
+    with gr.Tab("Пакетная конвертация"):
+        _batch_conversion_tab()

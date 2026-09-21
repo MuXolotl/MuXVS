@@ -14,7 +14,7 @@ UVR_OUTPUT_DIR = os.path.join(os.getcwd(), "output", "UVR_output")
 LOGS_DIR = os.path.join(os.getcwd(), "logs")
 
 OUTPUT_FORMATS = ["wav", "flac", "mp3", "ogg", "m4a"]
-F0_METHODS = ["rmvpe", "rmvpe+", "hpa-rmvpe", "fcpe", "crepe", "crepe-tiny"]
+F0_METHODS = ["hpa-rmvpe", "rmvpe+", "rmvpe", "fcpe", "crepe", "crepe-tiny"]
 
 AUTOTUNE_NOTES = ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"]
 AUTOTUNE_SCALES = [
@@ -89,13 +89,52 @@ def refresh_models() -> gr.update:
     return gr.update(choices=list_rvc_models())
 
 
-def model_row():
-    """Строка выбора модели: выпадающий список + кнопка обновления."""
-    with gr.Row(equal_height=True):
-        model = gr.Dropdown(label="Голосовая модель", choices=list_rvc_models(), scale=4)
-        refresh_btn = gr.Button("⟳ Обновить", scale=1)
+def model_select():
+    """Группа выбора модели: список + кнопка обновления (классический вид)."""
+    with gr.Group():
+        model = gr.Dropdown(label="Голосовые модели:", choices=list_rvc_models())
+        refresh_btn = gr.Button("Обновить список моделей", variant="primary")
     refresh_btn.click(refresh_models, outputs=model, api_name=False)
     return model
+
+
+def pitch_group():
+    """Группа тона: авто-тон + порог + слайдер (классический вид)."""
+    with gr.Group():
+        autopitch = gr.Checkbox(value=False, label="Автоматическое определение высоты тона")
+        autopitch_threshold = gr.Radio(
+            value=155.0,
+            choices=[("Мужская модель", 155.0), ("Женская модель", 255.0)],
+            show_label=False,
+            visible=False,
+        )
+        rvc_pitch = gr.Slider(
+            minimum=-24,
+            maximum=24,
+            step=1,
+            value=0,
+            label="Регулировка высоты тона",
+            info="-24 — Мужская модель | 24 — Женская модель",
+        )
+    autopitch.change(_toggle_autopitch, inputs=autopitch, outputs=[autopitch_threshold, rvc_pitch], api_name=False)
+    return autopitch, autopitch_threshold, rvc_pitch
+
+
+def process_file_upload(file):
+    return file, gr.update(value=file)
+
+
+def swap_visibility():
+    return (
+        gr.update(visible=True),
+        gr.update(visible=False),
+        gr.update(value=""),
+        gr.update(value=None),
+    )
+
+
+def swap_buttons():
+    return gr.update(visible=False), gr.update(visible=True)
 
 
 def update_edge_voices(language: str) -> gr.update:
@@ -113,47 +152,109 @@ def _toggle_autotune(enabled: bool):
     return gr.update(visible=enabled), gr.update(visible=enabled), gr.update(visible=enabled)
 
 
-def conversion_settings(pitch=None):
-    """Аккордеон тонких настроек конвертации. Возвращает словарь компонентов.
+def conversion_settings():
+    """Аккордеон тонких настроек конвертации (классический вид).
 
-    Ключи соответствуют именованным аргументам `rvc_infer` / `rvc_batch_infer`
-    (кроме модели, входа, тона, метода F0 и формата — они лежат в основной части).
-    Если передан слайдер тона, авто-тон скрывает его и показывает порог вместо него.
+    Возвращает словарь компонентов; ключи соответствуют именованным
+    аргументам `rvc_infer` / `rvc_batch_infer` / `rvc_edgetts_infer`
+    (кроме модели, входа, тона и формата — они лежат в основной части).
     """
-    with gr.Accordion("Настройки конвертации", open=False):
-        with gr.Row():
-            index_rate = gr.Slider(minimum=0, maximum=1, step=0.01, value=0, label="Влияние индекса")
-            protect = gr.Slider(minimum=0, maximum=0.5, step=0.01, value=0.5, label="Защита согласных")
-            volume_envelope = gr.Slider(minimum=0, maximum=1, step=0.01, value=1, label="Смешивание громкости")
-        with gr.Row():
-            f0_min = gr.Slider(minimum=1, maximum=120, step=1, value=50, label="Мин. тон")
-            f0_max = gr.Slider(minimum=380, maximum=16000, step=1, value=1100, label="Макс. тон")
-            stereo_sound = gr.Checkbox(False, label="Стерео")
-            audio_upscaling = gr.Checkbox(False, label="Апскейл (FlashSR)")
-        with gr.Row():
-            autopitch = gr.Checkbox(False, label="Авто-тон")
-            autotune = gr.Checkbox(False, label="АвтоТюн")
-        with gr.Row():
-            autopitch_threshold = gr.Radio(
-                [("Мужская модель", 155.0), ("Женская модель", 255.0)],
-                value=155.0,
-                show_label=False,
-                visible=False,
-            )
-        with gr.Row():
-            autotune_tonic = gr.Dropdown(AUTOTUNE_NOTES, value="C", label="Тоника", visible=False)
-            autotune_scale = gr.Dropdown(AUTOTUNE_SCALES, value="chromatic", label="Лад", visible=False)
-            autotune_strength = gr.Slider(minimum=0, maximum=1, step=0.1, value=1, label="Сила автотюна", visible=False)
+    with gr.Accordion("Настройки преобразования", open=False):
+        with gr.Column(variant="panel"):
+            with gr.Accordion("Стандартные настройки", open=False):
+                with gr.Group():
+                    with gr.Column(variant="panel"):
+                        f0_method = gr.Dropdown(
+                            value="rmvpe",
+                            label="Метод выделения тона",
+                            choices=F0_METHODS,
+                        )
+                    with gr.Column(variant="panel"):
+                        index_rate = gr.Slider(
+                            minimum=0,
+                            maximum=1,
+                            step=0.01,
+                            value=0,
+                            label="Влияние индекса",
+                            info="Влияние, оказываемое индексным файлом; Чем выше значение, тем больше влияние. Однако выбор более низких значений может помочь смягчить артефакты, присутствующие в аудио.",
+                        )
+                        volume_envelope = gr.Slider(
+                            minimum=0,
+                            maximum=1,
+                            step=0.01,
+                            value=1,
+                            label="Скорость смешивания RMS",
+                            info="Заменить или смешать с огибающей громкости выходного сигнала. Чем ближе значение к 1, тем больше используется огибающая выходного сигнала.",
+                        )
+                        protect = gr.Slider(
+                            minimum=0,
+                            maximum=0.5,
+                            step=0.01,
+                            value=0.5,
+                            label="Защита согласных",
+                            info="Защитить согласные и звуки дыхания, чтобы избежать электроакустических разрывов и артефактов. Максимальное значение параметра 0.5 обеспечивает полную защиту. Уменьшение этого значения может снизить защиту, но уменьшить эффект индексирования.",
+                        )
 
-    if pitch is None:
-        autopitch.change(
-            lambda enabled: gr.update(visible=enabled),
-            inputs=autopitch,
-            outputs=autopitch_threshold,
-            api_name=False,
-        )
-    else:
-        autopitch.change(_toggle_autopitch, inputs=autopitch, outputs=[autopitch_threshold, pitch], api_name=False)
+            with gr.Accordion("Дополнительные настройки", open=False):
+                with gr.Group():
+                    with gr.Column():
+                        with gr.Row(variant="panel"):
+                            stereo_sound = gr.Checkbox(
+                                value=False,
+                                label="Преобразовать в стерео",
+                                info="Преобразование моно звука в стерео",
+                            )
+                            audio_upscaling = gr.Checkbox(
+                                value=False,
+                                label="Аудио-апскейл",
+                                info="Улучшение качества аудио (долгая обработка)",
+                            )
+                            with gr.Column():
+                                autotune = gr.Checkbox(
+                                    value=False,
+                                    label="АвтоТюн",
+                                    info="Коррекция высоты тона",
+                                )
+                                with gr.Column():
+                                    with gr.Row():
+                                        autotune_tonic = gr.Dropdown(
+                                            value="C",
+                                            label="Тоника",
+                                            choices=AUTOTUNE_NOTES,
+                                            visible=False,
+                                        )
+                                        autotune_scale = gr.Dropdown(
+                                            value="chromatic",
+                                            label="Гамма/Лад",
+                                            choices=AUTOTUNE_SCALES,
+                                            visible=False,
+                                        )
+                                    autotune_strength = gr.Slider(
+                                        minimum=0,
+                                        maximum=1,
+                                        step=0.1,
+                                        value=1,
+                                        label="Сила коррекции",
+                                        visible=False,
+                                    )
+                        with gr.Row(variant="panel"):
+                            f0_min = gr.Slider(
+                                minimum=1,
+                                maximum=120,
+                                step=1,
+                                value=50,
+                                label="Минимальный диапазон тона",
+                                info="Определяет нижнюю границу диапазона тона, который алгоритм будет использовать для определения основной частоты (F0) в аудиосигнале.",
+                            )
+                            f0_max = gr.Slider(
+                                minimum=380,
+                                maximum=16000,
+                                step=1,
+                                value=1100,
+                                label="Максимальный диапазон тона",
+                                info="Определяет верхнюю границу диапазона тона, который алгоритм будет использовать для определения основной частоты (F0) в аудиосигнале.",
+                            )
+
     autotune.change(
         _toggle_autotune,
         inputs=autotune,
@@ -162,6 +263,7 @@ def conversion_settings(pitch=None):
     )
 
     return {
+        "f0_method": f0_method,
         "index_rate": index_rate,
         "protect": protect,
         "volume_envelope": volume_envelope,
@@ -169,8 +271,6 @@ def conversion_settings(pitch=None):
         "f0_max": f0_max,
         "stereo_sound": stereo_sound,
         "audio_upscaling": audio_upscaling,
-        "autopitch": autopitch,
-        "autopitch_threshold": autopitch_threshold,
         "autotune": autotune,
         "autotune_tonic": autotune_tonic,
         "autotune_scale": autotune_scale,

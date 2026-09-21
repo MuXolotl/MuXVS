@@ -1,8 +1,17 @@
-"""Вкладка «TTS»: синтез речи из текста + замена голоса."""
+"""Вкладка «TTS»: синтез речи из текста + замена голоса (классический вид)."""
 
 import gradio as gr
 
-from gradio_ui.common import EDGE_VOICES, F0_METHODS, OUTPUT_FORMATS, conversion_settings, model_row, update_edge_voices
+from gradio_ui.common import (
+    EDGE_VOICES,
+    OUTPUT_FORMATS,
+    conversion_settings,
+    model_select,
+    pitch_group,
+    update_edge_voices,
+)
+
+DEFAULT_LANGUAGE = "Английский (Великобритания)"
 
 
 def _synthesize(
@@ -60,38 +69,85 @@ def _synthesize(
 
 
 def tts_tab():
-    rvc_model = model_row()
-
     with gr.Row():
-        language = gr.Dropdown(sorted(EDGE_VOICES), label="Язык")
-        tts_voice = gr.Dropdown(
-            EDGE_VOICES["Английский (Великобритания)"],
-            value="en-GB-SoniaNeural",
-            label="Голос",
+        with gr.Column(variant="panel", scale=1):
+            rvc_model = model_select()
+            with gr.Group():
+                language = gr.Dropdown(
+                    value=DEFAULT_LANGUAGE,
+                    label="Язык",
+                    choices=list(EDGE_VOICES),
+                )
+                tts_voice = gr.Dropdown(
+                    value="en-GB-SoniaNeural",
+                    label="Голос",
+                    choices=EDGE_VOICES[DEFAULT_LANGUAGE],
+                )
+        with gr.Column(variant="panel", scale=2):
+            with gr.Column(), gr.Group():
+                autopitch, autopitch_threshold, rvc_pitch = pitch_group()
+            synth_voice = gr.Audio(
+                label="Синтезированный TTS голос",
+                show_download_button=True,
+                interactive=False,
+            )
+
+    with gr.Accordion("Настройки синтеза речи", open=False), gr.Group(), gr.Row():
+        tts_pitch = gr.Slider(
+            minimum=-100,
+            maximum=100,
+            step=1,
+            value=0,
+            label="Регулировка высоты тона TTS",
+            info="-100 - мужской голос | 100 - женский голос",
         )
+        tts_volume = gr.Slider(
+            minimum=-100,
+            maximum=100,
+            step=1,
+            value=0,
+            label="Громкость речи",
+            info="Громкость воспроизведения синтеза речи",
+        )
+        tts_rate = gr.Slider(
+            minimum=-100,
+            maximum=100,
+            step=1,
+            value=0,
+            label="Скорость речи",
+            info="Скорость воспроизведения синтеза речи",
+        )
+
+    tts_text = gr.Textbox(label="Введите текст", lines=5)
+
+    with gr.Group(), gr.Row(equal_height=True):
+        generate_btn = gr.Button(
+            value="Генерировать",
+            variant="primary",
+            scale=2,
+        )
+        converted_synth_voice = gr.Audio(
+            label="Преобразованный TTS голос",
+            show_download_button=True,
+            interactive=False,
+            scale=9,
+        )
+        with gr.Column(min_width=160):
+            output_format = gr.Dropdown(
+                value="mp3",
+                label="Формат файла",
+                choices=OUTPUT_FORMATS,
+            )
+
+    settings = conversion_settings()
+
+    # Обновление списка TTS-голосов
     language.change(update_edge_voices, inputs=language, outputs=tts_voice, api_name=False)
 
-    tts_text = gr.Textbox(label="Текст", lines=4, placeholder="Введите текст для озвучки…")
+    # Обновление списка моделей — внутри model_select(); авто-тон — внутри pitch_group().
 
-    with gr.Row():
-        rvc_pitch = gr.Slider(minimum=-24, maximum=24, step=1, value=0, label="Тон (полутоны)")
-        f0_method = gr.Dropdown(F0_METHODS, value="rmvpe", label="Метод F0")
-        output_format = gr.Dropdown(OUTPUT_FORMATS, value="mp3", label="Формат")
-
-    with gr.Accordion("Параметры речи", open=False):
-        with gr.Row():
-            tts_rate = gr.Slider(minimum=-100, maximum=100, step=1, value=0, label="Скорость")
-            tts_volume = gr.Slider(minimum=-100, maximum=100, step=1, value=0, label="Громкость")
-            tts_pitch = gr.Slider(minimum=-100, maximum=100, step=1, value=0, label="Тон речи")
-
-    settings = conversion_settings(pitch=rvc_pitch)
-
-    convert_btn = gr.Button("Озвучить", variant="primary")
-    with gr.Row():
-        synth_audio = gr.Audio(label="Синтез TTS", interactive=False)
-        output_audio = gr.Audio(label="Результат", interactive=False)
-
-    convert_btn.click(
+    # Запуск процесса преобразования
+    generate_btn.click(
         _synthesize,
         inputs=[
             rvc_model,
@@ -100,7 +156,7 @@ def tts_tab():
             tts_rate,
             tts_volume,
             tts_pitch,
-            f0_method,
+            settings["f0_method"],
             rvc_pitch,
             output_format,
             settings["index_rate"],
@@ -108,8 +164,8 @@ def tts_tab():
             settings["volume_envelope"],
             settings["f0_min"],
             settings["f0_max"],
-            settings["autopitch"],
-            settings["autopitch_threshold"],
+            autopitch,
+            autopitch_threshold,
             settings["autotune"],
             settings["autotune_tonic"],
             settings["autotune_scale"],
@@ -117,5 +173,5 @@ def tts_tab():
             settings["stereo_sound"],
             settings["audio_upscaling"],
         ],
-        outputs=[synth_audio, output_audio],
+        outputs=[synth_voice, converted_synth_voice],
     )
