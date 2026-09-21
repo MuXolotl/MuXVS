@@ -20,11 +20,6 @@ F0_METHODS = ["rmvpe", "rmvpe+", "hpa-rmvpe"]
 AUDIO_EXTENSIONS = (".wav", ".mp3", ".flac", ".ogg", ".opus", ".m4a", ".aac", ".wma", ".aiff", ".webm", ".mp4")
 
 
-def _section_title(text: str):
-    """Заголовок секции с нормальными отступами (Markdown липнет к краям группы)."""
-    return gr.HTML(f"<div style='font-size:14px;font-weight:600;text-align:center;padding:2px 4px 6px;'>{text}</div>")
-
-
 def _section_hint(code1: str, code2: str):
     """Центрированная подсказка под заголовком секции обучения."""
     return gr.HTML(
@@ -209,26 +204,24 @@ def training_tab():
     model_name = gr.Textbox(label="Имя модели", placeholder="MyVoice")
 
     with gr.Accordion("Подготовка данных", open=False):
-        with gr.Row(equal_height=True):
-            with gr.Column(scale=1):
-                dataset_folder = gr.Textbox(label="Папка с датасетом", placeholder="/путь/к/аудио")
-                dataset_files = gr.File(label="…или загрузите файлы", file_count="multiple", height=260)
-                slice_btn = gr.Button("Нарезать", variant="primary")
-            with gr.Column(scale=1):
-                _section_title("Настройки обработки")
-                segment_len = gr.Slider(minimum=1.0, maximum=10.0, step=0.1, value=3.0, label="Сегмент (сек)")
-                with gr.Row(equal_height=True):
-                    normalize = gr.Checkbox(value=True, label="Нормализация")
-                    sample_rate = gr.Dropdown(SAMPLE_RATES, value=48000, label="Частота (Hz)")
-                _section_title("Признаки (F0 + HuBERT)")
-                with gr.Row(equal_height=True):
-                    f0_method = gr.Dropdown(F0_METHODS, value="rmvpe", label="Метод F0")
-                    include_mutes = gr.Slider(minimum=0, maximum=10, step=1, value=2, label="Мьют-файлов")
-                extract_btn = gr.Button("Извлечь", variant="primary")
-                index_btn = gr.Button("Построить индекс")
+        with gr.Group():
+            with gr.Row(equal_height=True):
+                with gr.Column(scale=1):
+                    dataset_folder = gr.Textbox(label="Папка с датасетом", placeholder="/путь/к/аудио")
+                    dataset_files = gr.File(label="…или загрузите файлы", file_count="multiple", height=260)
+                    slice_btn = gr.Button("Нарезать", variant="primary")
+                with gr.Column(scale=1):
+                    segment_len = gr.Slider(minimum=1.0, maximum=10.0, step=0.1, value=3.0, label="Сегмент (сек)")
+                    with gr.Row(equal_height=True):
+                        normalize = gr.Checkbox(value=True, label="Нормализация")
+                        sample_rate = gr.Dropdown(SAMPLE_RATES, value=48000, label="Частота (Hz)")
+                    with gr.Row(equal_height=True):
+                        f0_method = gr.Dropdown(F0_METHODS, value="rmvpe", label="Метод F0")
+                        include_mutes = gr.Slider(minimum=0, maximum=10, step=1, value=2, label="Мьют-файлов")
+                    extract_btn = gr.Button("Извлечь", variant="primary")
+                    index_btn = gr.Button("Построить индекс")
 
     with gr.Group():
-        _section_title("Обучение")
         _section_hint("checkpoint.pth", "tensorboard --logdir logs")
         with gr.Row(equal_height=True):
             total_epoch = gr.Slider(minimum=1, maximum=10000, step=1, value=300, label="Всего эпох")
