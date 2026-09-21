@@ -1,6 +1,6 @@
 """Вкладка «Обучение»: шаги как в официальном RVC WebUI.
 
-1. Нарезка датасета → 2. Извлечение признаков → 3. Обучение (+ индекс).
+1. Нарезка датасета → 2. Извлечение признаков + индекс → 3. Обучение.
 Шаги запускаются отдельными процессами с общим живым журналом.
 """
 
@@ -30,7 +30,11 @@ def _require_name(model_name: str) -> str:
 
 
 def _input_root(model_name: str, files, folder: str) -> str:
-    """Папка входа для нарезки: загруженные файлы копируются в датасет модели."""
+    """Папка входа для нарезки: указанная папка или загруженные файлы."""
+    if folder and folder.strip():
+        if not os.path.isdir(folder.strip()):
+            raise gr.Error(f"Папка не найдена: {folder.strip()}")
+        return folder.strip()
     if files:
         dataset_dir = os.path.join(_exp_dir(model_name), "dataset")
         os.makedirs(dataset_dir, exist_ok=True)
@@ -43,9 +47,7 @@ def _input_root(model_name: str, files, folder: str) -> str:
         if not copied:
             raise gr.Error("Среди прикреплённых файлов нет аудио.")
         return dataset_dir
-    if folder and folder.strip() and os.path.isdir(folder.strip()):
-        return folder.strip()
-    raise gr.Error("Прикрепите аудиофайлы или укажите папку с датасетом.")
+    raise gr.Error("Укажите папку с датасетом или прикрепите аудиофайлы.")
 
 
 def _slice_dataset(model_name, files, folder, sample_rate, segment_len, normalize):
@@ -148,23 +150,26 @@ def training_tab():
         model_name = gr.Textbox(label="Имя модели", placeholder="MyVoice", scale=3)
         sample_rate = gr.Dropdown(SAMPLE_RATES, value=48000, label="Частота (Hz)", scale=1)
 
-    with gr.Group():
-        gr.Markdown("**Шаг 1 · Нарезка датасета**")
-        with gr.Row():
-            dataset_files = gr.File(label="Аудиофайлы", file_count="multiple")
-            with gr.Column():
-                dataset_folder = gr.Textbox(label="…или папка с датасетом", placeholder="/путь/к/аудио")
+    with gr.Row():
+        with gr.Column(scale=1):
+            with gr.Group():
+                gr.Markdown("**Шаг 1 · Нарезка датасета**")
+                dataset_folder = gr.Textbox(label="Папка с датасетом", placeholder="/путь/к/аудио")
+                dataset_files = gr.File(label="…или загрузите файлы", file_count="multiple")
+                slice_btn = gr.Button("Нарезать", variant="primary")
+        with gr.Column(scale=1):
+            with gr.Group():
+                gr.Markdown("**Настройки нарезки**")
                 with gr.Row():
                     segment_len = gr.Slider(minimum=1.0, maximum=10.0, step=0.1, value=3.0, label="Сегмент (сек)")
-                    normalize = gr.Checkbox(True, label="Нормализация")
-        slice_btn = gr.Button("Нарезать", variant="primary")
-
-    with gr.Group():
-        gr.Markdown("**Шаг 2 · Признаки (F0 + HuBERT)**")
-        with gr.Row():
-            f0_method = gr.Dropdown(F0_METHODS, value="rmvpe", label="Метод F0")
-            include_mutes = gr.Slider(minimum=0, maximum=10, step=1, value=2, label="Мьют-файлов")
-            extract_btn = gr.Button("Извлечь", variant="primary")
+                    normalize = gr.Checkbox(value=True, label="Нормализация")
+            with gr.Group():
+                gr.Markdown("**Шаг 2 · Признаки (F0 + HuBERT)**")
+                with gr.Row():
+                    f0_method = gr.Dropdown(F0_METHODS, value="rmvpe", label="Метод F0")
+                    include_mutes = gr.Slider(minimum=0, maximum=10, step=1, value=2, label="Мьют-файлов")
+                extract_btn = gr.Button("Извлечь", variant="primary")
+                index_btn = gr.Button("Построить индекс")
 
     with gr.Group():
         gr.Markdown("**Шаг 3 · Обучение**")
@@ -189,7 +194,6 @@ def training_tab():
                 save_half = gr.Checkbox(True, label="Веса float16")
         with gr.Row():
             train_btn = gr.Button("Обучить", variant="primary")
-            index_btn = gr.Button("Построить индекс")
             stop_btn = gr.Button("Остановить", variant="stop")
 
     log = gr.Textbox(label="Журнал", lines=12, max_lines=12)
