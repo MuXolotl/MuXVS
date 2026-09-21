@@ -95,15 +95,15 @@ with gr.Blocks(
     with gr.Tab("Конвертация"):
         conversion_tab(include_tts=not is_offline_mode())
 
+    with gr.Tab("Обучение"):
+        training_tab()
+
     with gr.Tab(uvr_title):
         if uvr_ui is not None:
             uvr_ui(UVR_MODELS_DIR, UVR_OUTPUT_DIR)
         else:
             gr.HTML(f"<center><h2>{uvr_message}</h2></center>")
             gr.Code(value=uvr_error, language="python", interactive=False, show_label=False)
-
-    with gr.Tab("Обучение"):
-        training_tab()
 
     with gr.Tab("Модели"):
         models_tab(is_offline_mode())
