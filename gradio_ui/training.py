@@ -1,7 +1,7 @@
-"""Вкладка «Обучение»: шаги как в официальном RVC WebUI.
+"""Вкладка «Обучение»: секции как в официальном RVC WebUI.
 
-1. Нарезка датасета → 2. Извлечение признаков + индекс → 3. Обучение.
-Шаги запускаются отдельными процессами с общим живым журналом.
+Нарезка датасета → Признаки + индекс → Обучение.
+Секции запускаются отдельными процессами с общим живым журналом.
 """
 
 import os
@@ -9,6 +9,7 @@ import shutil
 
 import gradio as gr
 
+from assets.model_installer import NO_PRETRAIN, PRETRAIN_CHOICES, ensure_pretrains
 from gradio_ui.jobs import command, request_stop, run_job
 
 LOGS_DIR = os.path.join(os.getcwd(), "logs")
@@ -70,7 +71,7 @@ def _extract_features(model_name, sample_rate, f0_method, include_mutes):
     model_name = _require_name(model_name)
     sliced = os.path.join(_exp_dir(model_name), "data", "sliced_audios")
     if not os.path.isdir(sliced) or not os.listdir(sliced):
-        raise gr.Error("Нет нарезанных сегментов — сначала выполните шаг 1.")
+        raise gr.Error("Нет нарезанных сегментов — сначала выполните нарезку.")
     yield from run_job(
         f"Извлечение признаков «{model_name}»",
         command(
@@ -87,11 +88,54 @@ def _train_index(model_name):
     model_name = _require_name(model_name)
     features = os.path.join(_exp_dir(model_name), "data", "features")
     if not os.path.isdir(features) or not os.listdir(features):
-        raise gr.Error("Нет признаков — сначала выполните шаг 2.")
+        raise gr.Error("Нет признаков — сначала извлеките их.")
     yield from run_job(
         f"Индекс «{model_name}»",
         command("rvc.training.preprocess.extract_index", _exp_dir(model_name), "Auto"),
     )
+
+
+def _resolve_pretrains(pretrain, pretrain_g, pretrain_d, sample_rate, exp_dir):
+    """Пути претрейнов G/D: свои файлы, встроенный набор или ничего.
+
+    Генератор: отдаёт строки журнала, возвращает (путь G, путь D).
+    Свои файлы имеют приоритет над встроенным набором. При продолжении
+    обучения с чекпоинта претрейны не нужны — скачивание пропускается.
+    """
+    manual_g = (pretrain_g or "").strip()
+    manual_d = (pretrain_d or "").strip()
+    if manual_g or manual_d:
+        if not (manual_g and manual_d):
+            raise gr.Error("Укажите оба своих претрейна (G и D) или ни одного.")
+        for path in (manual_g, manual_d):
+            if not os.path.isfile(path):
+                raise gr.Error(f"Претрейн не найден: {path}")
+        yield f"• Свои претрейны: {os.path.basename(manual_g)}, {os.path.basename(manual_d)}"
+        return manual_g, manual_d
+    if os.path.isfile(os.path.join(exp_dir, "checkpoint.pth")):
+        yield "• Найден checkpoint.pth — обучение продолжится, претрейны не нужны."
+        return None, None
+    if pretrain == NO_PRETRAIN:
+        yield "• Без претрейна: потребуется больше эпох и данных."
+        return None, None
+    try:
+        return (yield from ensure_pretrains(pretrain, sample_rate))
+    except ValueError as error:
+        raise gr.Error(str(error)) from error
+
+
+def _drain(generator):
+    """Прогоняет генератор до конца, показывая накопленный журнал.
+
+    Возвращает (строки, return-значение генератора).
+    """
+    lines = []
+    try:
+        while True:
+            lines.append(next(generator))
+            yield "\n".join(lines)
+    except StopIteration as done:
+        return lines, done.value
 
 
 def _train_model(
@@ -103,15 +147,16 @@ def _train_model(
     vocoder,
     optimizer,
     gpus,
+    pretrain,
     pretrain_g,
     pretrain_d,
     save_to_zip,
     save_half,
 ):
     model_name = _require_name(model_name)
-    filelist = os.path.join(_exp_dir(model_name), "data", "filelist.txt")
-    if not os.path.isfile(filelist):
-        raise gr.Error("Нет filelist.txt — сначала выполните шаги 1 и 2.")
+    exp_dir = _exp_dir(model_name)
+    if not os.path.isfile(os.path.join(exp_dir, "data", "filelist.txt")):
+        raise gr.Error("Нет filelist.txt — сначала выполните нарезку и извлечение признаков.")
     cmd = command(
         "rvc.training.train",
         "--experiment_dir",
@@ -137,12 +182,13 @@ def _train_model(
         "--save_half",
         "true" if save_half else "false",
     )
-    for flag, path in (("--pretrain_g", pretrain_g), ("--pretrain_d", pretrain_d)):
-        if path and str(path).strip():
-            if not os.path.isfile(str(path).strip()):
-                raise gr.Error(f"Претрейн не найден: {path}")
-            cmd += [flag, str(path).strip()]
-    yield from run_job(f"Обучение «{model_name}»", cmd)
+
+    notes, (resolved_g, resolved_d) = yield from _drain(
+        _resolve_pretrains(pretrain, pretrain_g, pretrain_d, int(sample_rate), exp_dir),
+    )
+    if resolved_g and resolved_d:
+        cmd += ["--pretrain_g", resolved_g, "--pretrain_d", resolved_d]
+    yield from run_job(f"Обучение «{model_name}»", cmd, prefix="\n".join(notes))
 
 
 def training_tab():
@@ -155,7 +201,7 @@ def training_tab():
             with gr.Group():
                 gr.Markdown("**Шаг 1 · Нарезка датасета**")
                 dataset_folder = gr.Textbox(label="Папка с датасетом", placeholder="/путь/к/аудио")
-                dataset_files = gr.File(label="…или загрузите файлы", file_count="multiple")
+                dataset_files = gr.File(label="…или загрузите файлы", file_count="multiple", height=180)
                 slice_btn = gr.Button("Нарезать", variant="primary")
         with gr.Column(scale=1):
             with gr.Group():
@@ -172,29 +218,35 @@ def training_tab():
                 index_btn = gr.Button("Построить индекс")
 
     with gr.Group():
-        gr.Markdown("**Шаг 3 · Обучение**")
+        gr.Markdown("**Обучение**")
         gr.Markdown(
             "Если в папке модели есть `checkpoint.pth`, обучение продолжится с него. "
             "Метрики: `tensorboard --logdir logs`.",
         )
-        with gr.Row():
+        with gr.Row(equal_height=True):
             total_epoch = gr.Slider(minimum=1, maximum=10000, step=1, value=300, label="Всего эпох")
             save_every_epoch = gr.Slider(minimum=1, maximum=100, step=1, value=25, label="Сохранять каждые N")
             batch_size = gr.Slider(minimum=1, maximum=128, step=1, value=8, label="Батч")
         with gr.Accordion("Дополнительно", open=False):
-            with gr.Row():
+            with gr.Row(equal_height=True):
                 vocoder = gr.Dropdown(VOCODERS, value="HiFi-GAN", label="Вокодер")
                 optimizer = gr.Dropdown(OPTIMIZERS, value="AdamW", label="Оптимизатор")
                 gpus = gr.Textbox("0", label="GPU")
-            with gr.Row():
-                pretrain_g = gr.Textbox(label="Претрейн G (.pth)", placeholder="путь — только для старта с нуля")
-                pretrain_d = gr.Textbox(label="Претрейн D (.pth)", placeholder="путь — только для старта с нуля")
-            with gr.Row():
+            pretrain = gr.Dropdown(
+                PRETRAIN_CHOICES,
+                value="Default",
+                label="Претрейн",
+                info="Встроенный набор скачивается сам при старте обучения.",
+            )
+            with gr.Row(equal_height=True):
+                pretrain_g = gr.Textbox(label="Свой претрейн G", placeholder="Путь к .pth — вместо встроенного")
+                pretrain_d = gr.Textbox(label="Свой претрейн D", placeholder="Путь к .pth — вместо встроенного")
+            with gr.Row(equal_height=True):
                 save_to_zip = gr.Checkbox(False, label="Собрать ZIP в конце")
                 save_half = gr.Checkbox(True, label="Веса float16")
-        with gr.Row():
-            train_btn = gr.Button("Обучить", variant="primary")
-            stop_btn = gr.Button("Остановить", variant="stop")
+        with gr.Row(equal_height=True):
+            train_btn = gr.Button("Запустить обучение", variant="primary")
+            stop_btn = gr.Button("Завершить процесс", variant="stop")
 
     log = gr.Textbox(label="Журнал", lines=12, max_lines=12)
 
@@ -219,6 +271,7 @@ def training_tab():
             vocoder,
             optimizer,
             gpus,
+            pretrain,
             pretrain_g,
             pretrain_d,
             save_to_zip,

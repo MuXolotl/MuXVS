@@ -122,8 +122,8 @@ def conversion_tab():
         with gr.Row():
             dir_input = gr.Textbox(label="Папка с аудио", placeholder="/путь/к/папке", scale=2)
             output_dir = gr.Textbox(label="Папка результата", value=RVC_OUTPUT_DIR, scale=2)
-        batch_files = gr.File(label="…или прикрепите файлы", file_count="multiple")
-        with gr.Row():
+        batch_files = gr.File(label="…или прикрепите файлы", file_count="multiple", height=180)
+        with gr.Row(equal_height=True):
             batch_btn = gr.Button("Конвертировать пакет", variant="primary", scale=1)
             batch_info = gr.Textbox(label="Результат", lines=6, scale=2)
 

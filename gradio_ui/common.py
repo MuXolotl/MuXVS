@@ -91,7 +91,7 @@ def refresh_models() -> gr.update:
 
 def model_row():
     """Строка выбора модели: выпадающий список + кнопка обновления."""
-    with gr.Row():
+    with gr.Row(equal_height=True):
         model = gr.Dropdown(label="Голосовая модель", choices=list_rvc_models(), scale=4)
         refresh_btn = gr.Button("⟳ Обновить", scale=1)
     refresh_btn.click(refresh_models, outputs=model, api_name=False)

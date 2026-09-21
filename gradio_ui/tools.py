@@ -116,7 +116,7 @@ def tools_tab():
         with gr.Row():
             upscale_in = gr.Audio(label="Исходное аудио", type="filepath")
             upscale_out = gr.Audio(label="Улучшенное аудио", interactive=False)
-        with gr.Row():
+        with gr.Row(equal_height=True):
             overlap = gr.Slider(minimum=1, maximum=8, step=1, value=2, label="Перекрытие")
             upscale_btn = gr.Button("Улучшить", variant="primary")
         upscale_btn.click(_upscale_audio, inputs=[upscale_in, overlap], outputs=upscale_out)

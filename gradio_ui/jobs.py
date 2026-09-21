@@ -71,7 +71,7 @@ def _spawn(cmd: list) -> subprocess.Popen:
         return _process
 
 
-def run_job(title: str, commands: list):
+def run_job(title: str, commands: list, prefix: str = ""):
     """Генератор для кнопки запуска: выполняет команды по очереди, отдаёт журнал."""
     global _process, _stop_requested
     if busy():
@@ -84,6 +84,8 @@ def run_job(title: str, commands: list):
 
     lines = deque(maxlen=TAIL_LINES)
     lines.append(f"▶ {title}")
+    if prefix:
+        lines.extend(prefix.split("\n"))
     yield "\n".join(lines)
 
     try:
