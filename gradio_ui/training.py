@@ -47,14 +47,26 @@ def _has_files(path: str) -> bool:
 
 
 def _step_states(model_name):
-    """Доступность кнопок 1/2/3 по фактическим артефактам модели."""
-    exp_dir = _exp_dir(model_name.strip()) if model_name and model_name.strip() else ""
+    """Доступность кнопок 1/2/3 по фактическим артефактам модели.
+
+    Пройденные шаги блокируются от повторного запуска; индекс доступен
+    после извлечения признаков, пока нет файла `logs/<имя>/<имя>.index`.
+    """
+    if not model_name or not model_name.strip():
+        return (
+            gr.update(interactive=True),
+            gr.update(interactive=False),
+            gr.update(interactive=False),
+        )
+    name = model_name.strip()
+    exp_dir = _exp_dir(name)
     slices_done = _has_files(os.path.join(exp_dir, "data", "sliced_audios"))
     features_done = _has_files(os.path.join(exp_dir, "data", "features"))
+    index_done = os.path.isfile(os.path.join(exp_dir, f"{name}.index"))
     return (
-        gr.update(interactive=True),
-        gr.update(interactive=slices_done),
-        gr.update(interactive=features_done),
+        gr.update(interactive=not slices_done),
+        gr.update(interactive=slices_done and not features_done),
+        gr.update(interactive=features_done and not index_done),
     )
 
 
@@ -228,7 +240,6 @@ def training_tab():
                 with gr.Column(scale=1):
                     dataset_folder = gr.Textbox(label="Папка с датасетом", placeholder="/путь/к/аудио")
                     dataset_files = gr.File(label="…или загрузите файлы", file_count="multiple", height=260)
-                    slice_btn = gr.Button("1. Нарезать", variant="primary")
                 with gr.Column(scale=1):
                     with gr.Row(equal_height=True):
                         sample_rate = gr.Dropdown(SAMPLE_RATES, value=48000, label="Частота (Hz)")
@@ -237,8 +248,10 @@ def training_tab():
                     with gr.Row(equal_height=True):
                         segment_len = gr.Slider(minimum=1.0, maximum=10.0, step=0.1, value=3.0, label="Сегмент (сек)")
                         include_mutes = gr.Slider(minimum=0, maximum=10, step=1, value=2, label="Мьют-файлов")
-                    extract_btn = gr.Button("2. Извлечь", variant="primary", interactive=False)
-                    index_btn = gr.Button("3. Построить индекс", interactive=False)
+                    with gr.Row(equal_height=True):
+                        slice_btn = gr.Button("1. Нарезать", variant="primary")
+                        extract_btn = gr.Button("2. Извлечь", variant="primary", interactive=False)
+                        index_btn = gr.Button("3. Построить индекс", interactive=False)
 
     with gr.Group():
         _section_hint("checkpoint.pth", "tensorboard --logdir logs")
@@ -300,5 +313,7 @@ def training_tab():
         ],
         outputs=log,
     )
-    index_btn.click(_train_index, inputs=model_name, outputs=log)
+    index_btn.click(_train_index, inputs=model_name, outputs=log).then(
+        _step_states, inputs=model_name, outputs=step_buttons, api_name=False
+    )
     stop_btn.click(request_stop, outputs=log, queue=False, api_name=False)
