@@ -227,32 +227,33 @@ def training_tab():
                 extract_btn = gr.Button("Извлечь", variant="primary")
                 index_btn = gr.Button("Построить индекс")
 
-    _section_title("Обучение")
-    _section_hint("checkpoint.pth", "tensorboard --logdir logs")
-    with gr.Row(equal_height=True):
-        total_epoch = gr.Slider(minimum=1, maximum=10000, step=1, value=300, label="Всего эпох")
-        save_every_epoch = gr.Slider(minimum=1, maximum=100, step=1, value=25, label="Сохранять каждые N")
-        batch_size = gr.Slider(minimum=1, maximum=128, step=1, value=8, label="Батч")
-    with gr.Accordion("Дополнительно", open=False):
+    with gr.Group():
+        _section_title("Обучение")
+        _section_hint("checkpoint.pth", "tensorboard --logdir logs")
         with gr.Row(equal_height=True):
-            vocoder = gr.Dropdown(VOCODERS, value="HiFi-GAN", label="Вокодер")
-            optimizer = gr.Dropdown(OPTIMIZERS, value="AdamW", label="Оптимизатор")
-            gpus = gr.Textbox("0", label="GPU")
-        pretrain = gr.Dropdown(
-            PRETRAIN_CHOICES,
-            value="Default",
-            label="Претрейн",
-            info="Встроенный набор скачивается сам при старте обучения.",
-        )
+            total_epoch = gr.Slider(minimum=1, maximum=10000, step=1, value=300, label="Всего эпох")
+            save_every_epoch = gr.Slider(minimum=1, maximum=100, step=1, value=25, label="Сохранять каждые N")
+            batch_size = gr.Slider(minimum=1, maximum=128, step=1, value=8, label="Батч")
+        with gr.Accordion("Дополнительно", open=False):
+            with gr.Row(equal_height=True):
+                vocoder = gr.Dropdown(VOCODERS, value="HiFi-GAN", label="Вокодер")
+                optimizer = gr.Dropdown(OPTIMIZERS, value="AdamW", label="Оптимизатор")
+                gpus = gr.Textbox("0", label="GPU")
+            pretrain = gr.Dropdown(
+                PRETRAIN_CHOICES,
+                value="Default",
+                label="Претрейн",
+                info="Встроенный набор скачивается сам при старте обучения.",
+            )
+            with gr.Row(equal_height=True):
+                pretrain_g = gr.Textbox(label="Свой претрейн G", placeholder="Путь к .pth — вместо встроенного")
+                pretrain_d = gr.Textbox(label="Свой претрейн D", placeholder="Путь к .pth — вместо встроенного")
+            with gr.Row(equal_height=True):
+                save_to_zip = gr.Checkbox(False, label="Собрать ZIP в конце")
+                save_half = gr.Checkbox(True, label="Веса float16")
         with gr.Row(equal_height=True):
-            pretrain_g = gr.Textbox(label="Свой претрейн G", placeholder="Путь к .pth — вместо встроенного")
-            pretrain_d = gr.Textbox(label="Свой претрейн D", placeholder="Путь к .pth — вместо встроенного")
-        with gr.Row(equal_height=True):
-            save_to_zip = gr.Checkbox(False, label="Собрать ZIP в конце")
-            save_half = gr.Checkbox(True, label="Веса float16")
-    with gr.Row(equal_height=True):
-        train_btn = gr.Button("Запустить обучение", variant="primary")
-        stop_btn = gr.Button("Завершить процесс", variant="stop")
+            train_btn = gr.Button("Запустить обучение", variant="primary")
+            stop_btn = gr.Button("Завершить процесс", variant="stop")
 
     log = gr.Textbox(label="Журнал", lines=12, max_lines=12)
 
