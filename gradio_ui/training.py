@@ -11,6 +11,7 @@ import gradio as gr
 
 from assets.env_paths import require_training_logs_dir, training_logs_dir
 from assets.model_installer import ensure_pretrains
+from assets.notebook_check import colab_check, kaggle_check
 from assets.pretrains import DEFAULT_PRETRAIN, NO_PRETRAIN, pretrain_choices
 from gradio_ui.jobs import command, request_stop, run_job
 from gradio_ui.tensorboard import DEFAULT_TENSORBOARD_PORT, launch_tensorboard
@@ -88,7 +89,16 @@ def _refresh_pretrains(sample_rate, current):
 
 def _open_board(port, base_url):
     """Запускает TensorBoard и возвращает HTML для встраивания."""
-    url = launch_tensorboard(_require_logs_dir(), int(port or DEFAULT_TENSORBOARD_PORT))
+    logs_dir = _require_logs_dir()
+    if colab_check() or kaggle_check():
+        # В блокнотах браузер не видит localhost рантайма —
+        # графики открываются магией %tensorboard в ячейке.
+        return (
+            "<p>В Colab/Kaggle встроенный просмотр недоступен.</p>"
+            "<p>Вставьте в отдельную ячейку блокнота:</p>"
+            f"<pre>%load_ext tensorboard\n%tensorboard --logdir {logs_dir}</pre>"
+        )
+    url = launch_tensorboard(logs_dir, int(port or DEFAULT_TENSORBOARD_PORT))
     if url.startswith("Ошибка"):
         return f"<p style='color:#e5534b'>{url}</p>"
 
