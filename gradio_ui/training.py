@@ -306,18 +306,18 @@ def training_tab():
             train_btn = gr.Button("Запустить обучение", variant="primary")
             stop_btn = gr.Button("Завершить процесс", variant="stop")
 
-    log = gr.Textbox(label="Журнал", lines=12, max_lines=12)
-
-    board_btn = gr.Button("📊 TensorBoard", variant="secondary")
-    with gr.Accordion("Параметры TensorBoard", open=False):
-        with gr.Row(equal_height=True):
-            board_port = gr.Number(value=DEFAULT_TENSORBOARD_PORT, label="Порт", precision=0)
-            board_base_url = gr.Textbox(
-                label="Базовый адрес (за прокси)",
-                placeholder="http://127.0.0.1:6006/tensorboard",
-                info="Оставьте пустым при запуске на своём компьютере.",
-            )
-    board_frame = gr.HTML("")
+    with gr.Group():
+        log = gr.Textbox(label="Журнал", lines=12, max_lines=12)
+        board_btn = gr.Button("📊 TensorBoard", variant="secondary")
+        with gr.Accordion("Параметры TensorBoard", open=False):
+            with gr.Row(equal_height=True):
+                board_port = gr.Number(value=DEFAULT_TENSORBOARD_PORT, label="Порт", precision=0)
+                board_base_url = gr.Textbox(
+                    label="Базовый адрес (за прокси)",
+                    placeholder="http://127.0.0.1:6006/tensorboard",
+                    info="Оставьте пустым при запуске на своём компьютере.",
+                )
+        board_frame = gr.HTML("")
 
     step_buttons = [slice_btn, extract_btn, index_btn]
     model_name.change(_step_states, inputs=model_name, outputs=step_buttons, api_name=False)
