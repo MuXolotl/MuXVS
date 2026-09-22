@@ -12,6 +12,7 @@ import gradio as gr
 from assets.model_installer import ensure_pretrains
 from assets.pretrains import DEFAULT_PRETRAIN, NO_PRETRAIN, pretrain_choices
 from gradio_ui.jobs import command, request_stop, run_job
+from gradio_ui.tensorboard import DEFAULT_TENSORBOARD_PORT, launch_tensorboard
 
 LOGS_DIR = os.path.join(os.getcwd(), "logs")
 SAMPLE_RATES = [32000, 40000, 48000]
@@ -75,6 +76,20 @@ def _refresh_pretrains(sample_rate, current):
     """Список претрейнов под выбранную частоту; чужой выбор сбрасывается."""
     choices = pretrain_choices(sample_rate)
     return gr.update(choices=choices, value=current if current in choices else DEFAULT_PRETRAIN)
+
+
+def _open_board(port, base_url):
+    """Запускает TensorBoard и возвращает HTML для встраивания."""
+    url = launch_tensorboard(LOGS_DIR, int(port or DEFAULT_TENSORBOARD_PORT))
+    if url.startswith("Ошибка"):
+        return f"<p style='color:#e5534b'>{url}</p>"
+
+    # В обратном прокси адрес из launch() недостижим из браузера —
+    # тогда подставляется явно указанный базовый адрес.
+    if base_url and base_url.strip():
+        query = url.split("?", 1)[1] if "?" in url else ""
+        url = f"{base_url.strip().rstrip('/')}/?{query}" if query else base_url.strip().rstrip("/")
+    return f'<iframe src="{url}" width="100%" height="780" frameborder="0" title="TensorBoard"></iframe>'
 
 
 def _input_root(model_name: str, files, folder: str) -> str:
@@ -290,6 +305,16 @@ def training_tab():
         with gr.Row(equal_height=True):
             train_btn = gr.Button("Запустить обучение", variant="primary")
             stop_btn = gr.Button("Завершить процесс", variant="stop")
+        board_btn = gr.Button("📊 TensorBoard", variant="secondary")
+        with gr.Accordion("Параметры TensorBoard", open=False):
+            with gr.Row(equal_height=True):
+                board_port = gr.Number(value=DEFAULT_TENSORBOARD_PORT, label="Порт", precision=0)
+                board_base_url = gr.Textbox(
+                    label="Базовый адрес (за прокси)",
+                    placeholder="http://127.0.0.1:6006/tensorboard",
+                    info="Оставьте пустым при запуске на своём компьютере.",
+                )
+        board_frame = gr.HTML("")
 
     log = gr.Textbox(label="Журнал", lines=12, max_lines=12)
 
@@ -328,4 +353,5 @@ def training_tab():
     index_btn.click(_train_index, inputs=model_name, outputs=log).then(
         _step_states, inputs=model_name, outputs=step_buttons, api_name=False
     )
+    board_btn.click(_open_board, inputs=[board_port, board_base_url], outputs=board_frame)
     stop_btn.click(request_stop, outputs=log, queue=False, api_name=False)
