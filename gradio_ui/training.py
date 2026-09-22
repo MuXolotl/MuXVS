@@ -1,0 +1,376 @@
+"""Вкладка «Обучение»: секции как в официальном RVC WebUI.
+
+Нарезка датасета → Признаки + индекс → Обучение.
+Секции запускаются отдельными процессами с общим живым журналом.
+"""
+
+import os
+import shutil
+
+import gradio as gr
+
+from assets.env_paths import require_training_logs_dir, training_logs_dir
+from assets.model_installer import ensure_pretrains
+from assets.notebook_check import colab_check, kaggle_check
+from assets.pretrains import DEFAULT_PRETRAIN, NO_PRETRAIN, pretrain_choices
+from gradio_ui.jobs import command, request_stop, run_job
+from gradio_ui.tensorboard import DEFAULT_TENSORBOARD_PORT, launch_tensorboard
+
+SAMPLE_RATES = [32000, 40000, 48000]
+VOCODERS = ["HiFi-GAN", "MRF HiFi-GAN", "RefineGAN"]
+OPTIMIZERS = ["AdamW", "AdaBelief", "PolOpt"]
+F0_METHODS = ["rmvpe", "rmvpe+", "hpa-rmvpe"]
+AUDIO_EXTENSIONS = (".wav", ".mp3", ".flac", ".ogg", ".opus", ".m4a", ".aac", ".wma", ".aiff", ".webm", ".mp4")
+
+
+def _section_hint(code1: str, code2: str):
+    """Центрированная подсказка под заголовком секции обучения."""
+    return gr.HTML(
+        "<div style='font-size:13px;opacity:0.85;text-align:center;padding:0 4px 8px;'>"
+        f"Если в папке модели есть <code>{code1}</code>, обучение продолжится с него. "
+        f"Метрики: <code>{code2}</code>.</div>",
+    )
+
+
+def _exp_dir(model_name: str) -> str:
+    return os.path.join(training_logs_dir(), model_name.strip())
+
+
+def _require_logs_dir() -> str:
+    """Корень экспериментов для действий; в Colab без Drive — понятная ошибка."""
+    try:
+        return require_training_logs_dir()
+    except RuntimeError as error:
+        raise gr.Error(str(error)) from error
+
+
+def _require_name(model_name: str) -> str:
+    if not model_name or not model_name.strip():
+        raise gr.Error("Укажите имя модели.")
+    return model_name.strip()
+
+
+def _has_files(path: str) -> bool:
+    try:
+        return os.path.isdir(path) and bool(os.listdir(path))
+    except OSError:
+        return False
+
+
+def _step_states(model_name):
+    """Доступность кнопок 1/2/3 по фактическим артефактам модели.
+
+    Пройденные шаги блокируются от повторного запуска; индекс доступен
+    после извлечения признаков, пока нет файла `logs/<имя>/<имя>.index`.
+    """
+    if not model_name or not model_name.strip():
+        return (
+            gr.update(interactive=True),
+            gr.update(interactive=False),
+            gr.update(interactive=False),
+        )
+    name = model_name.strip()
+    exp_dir = _exp_dir(name)
+    slices_done = _has_files(os.path.join(exp_dir, "data", "sliced_audios"))
+    features_done = _has_files(os.path.join(exp_dir, "data", "features"))
+    index_done = os.path.isfile(os.path.join(exp_dir, f"{name}.index"))
+    return (
+        gr.update(interactive=not slices_done),
+        gr.update(interactive=slices_done and not features_done),
+        gr.update(interactive=features_done and not index_done),
+    )
+
+
+def _refresh_pretrains(sample_rate, current):
+    """Список претрейнов под выбранную частоту; чужой выбор сбрасывается."""
+    choices = pretrain_choices(sample_rate)
+    return gr.update(choices=choices, value=current if current in choices else DEFAULT_PRETRAIN)
+
+
+def _open_board(port, base_url):
+    """Запускает TensorBoard и возвращает HTML для встраивания."""
+    logs_dir = _require_logs_dir()
+    if colab_check() or kaggle_check():
+        # В блокнотах браузер не видит localhost рантайма —
+        # графики открываются магией %tensorboard в ячейке.
+        return (
+            "<p>В Colab/Kaggle встроенный просмотр недоступен.</p>"
+            "<p>Вставьте в отдельную ячейку блокнота:</p>"
+            f"<pre>%load_ext tensorboard\n%tensorboard --logdir {logs_dir}</pre>"
+        )
+    url = launch_tensorboard(logs_dir, int(port or DEFAULT_TENSORBOARD_PORT))
+    if url.startswith("Ошибка"):
+        return f"<p style='color:#e5534b'>{url}</p>"
+
+    # В обратном прокси адрес из launch() недостижим из браузера —
+    # тогда подставляется явно указанный базовый адрес.
+    if base_url and base_url.strip():
+        query = url.split("?", 1)[1] if "?" in url else ""
+        url = f"{base_url.strip().rstrip('/')}/?{query}" if query else base_url.strip().rstrip("/")
+    return f'<iframe src="{url}" width="100%" height="780" frameborder="0" title="TensorBoard"></iframe>'
+
+
+def _input_root(model_name: str, files, folder: str) -> str:
+    """Папка входа для нарезки: указанная папка или загруженные файлы."""
+    if folder and folder.strip():
+        if not os.path.isdir(folder.strip()):
+            raise gr.Error(f"Папка не найдена: {folder.strip()}")
+        return folder.strip()
+    if files:
+        dataset_dir = os.path.join(_exp_dir(model_name), "dataset")
+        os.makedirs(dataset_dir, exist_ok=True)
+        copied = 0
+        for item in files:
+            path = getattr(item, "name", None) or (item if isinstance(item, str) else None)
+            if path and os.path.isfile(path) and path.lower().endswith(AUDIO_EXTENSIONS):
+                shutil.copyfile(path, os.path.join(dataset_dir, os.path.basename(path)))
+                copied += 1
+        if not copied:
+            raise gr.Error("Среди прикреплённых файлов нет аудио.")
+        return dataset_dir
+    raise gr.Error("Укажите папку с датасетом или прикрепите аудиофайлы.")
+
+
+def _slice_dataset(model_name, files, folder, sample_rate, segment_len, normalize):
+    model_name = _require_name(model_name)
+    _require_logs_dir()
+    input_root = _input_root(model_name, files, folder)
+    yield from run_job(
+        f"Нарезка датасета «{model_name}»",
+        command(
+            "rvc.training.preprocess.preprocess",
+            _exp_dir(model_name),
+            input_root,
+            float(segment_len),
+            int(sample_rate),
+            "True" if normalize else "False",
+        ),
+    )
+
+
+def _extract_features(model_name, sample_rate, f0_method, include_mutes):
+    model_name = _require_name(model_name)
+    _require_logs_dir()
+    sliced = os.path.join(_exp_dir(model_name), "data", "sliced_audios")
+    if not os.path.isdir(sliced) or not os.listdir(sliced):
+        raise gr.Error("Нет нарезанных сегментов — сначала выполните нарезку.")
+    yield from run_job(
+        f"Извлечение признаков «{model_name}»",
+        command(
+            "rvc.training.preprocess.preparing_data",
+            _exp_dir(model_name),
+            f0_method,
+            int(sample_rate),
+            int(include_mutes),
+        ),
+    )
+
+
+def _train_index(model_name):
+    model_name = _require_name(model_name)
+    _require_logs_dir()
+    features = os.path.join(_exp_dir(model_name), "data", "features")
+    if not os.path.isdir(features) or not os.listdir(features):
+        raise gr.Error("Нет признаков — сначала извлеките их.")
+    yield from run_job(
+        f"Индекс «{model_name}»",
+        command("rvc.training.preprocess.extract_index", _exp_dir(model_name), "Auto"),
+    )
+
+
+def _resolve_pretrains(pretrain, pretrain_g, pretrain_d, sample_rate, exp_dir):
+    """Пути претрейнов G/D: свои файлы, встроенный набор или ничего.
+
+    Генератор: отдаёт строки журнала, возвращает (путь G, путь D).
+    Свои файлы имеют приоритет над встроенным набором. При продолжении
+    обучения с чекпоинта претрейны не нужны — скачивание пропускается.
+    """
+    manual_g = (pretrain_g or "").strip()
+    manual_d = (pretrain_d or "").strip()
+    if manual_g or manual_d:
+        if not (manual_g and manual_d):
+            raise gr.Error("Укажите оба своих претрейна (G и D) или ни одного.")
+        for path in (manual_g, manual_d):
+            if not os.path.isfile(path):
+                raise gr.Error(f"Претрейн не найден: {path}")
+        yield f"• Свои претрейны: {os.path.basename(manual_g)}, {os.path.basename(manual_d)}"
+        return manual_g, manual_d
+    if os.path.isfile(os.path.join(exp_dir, "checkpoint.pth")):
+        yield "• Найден checkpoint.pth — обучение продолжится, претрейны не нужны."
+        return None, None
+    if pretrain == NO_PRETRAIN:
+        yield "• Без претрейна: потребуется больше эпох и данных."
+        return None, None
+    try:
+        return (yield from ensure_pretrains(pretrain, sample_rate))
+    except ValueError as error:
+        raise gr.Error(str(error)) from error
+
+
+def _drain(generator):
+    """Прогоняет генератор до конца, показывая накопленный журнал.
+
+    Возвращает (строки, return-значение генератора).
+    """
+    lines = []
+    try:
+        while True:
+            lines.append(next(generator))
+            yield "\n".join(lines)
+    except StopIteration as done:
+        return lines, done.value
+
+
+def _train_model(
+    model_name,
+    sample_rate,
+    total_epoch,
+    save_every_epoch,
+    batch_size,
+    vocoder,
+    optimizer,
+    gpus,
+    pretrain,
+    pretrain_g,
+    pretrain_d,
+    save_to_zip,
+    save_half,
+):
+    model_name = _require_name(model_name)
+    logs_dir = _require_logs_dir()
+    exp_dir = _exp_dir(model_name)
+    if not os.path.isfile(os.path.join(exp_dir, "data", "filelist.txt")):
+        raise gr.Error("Нет filelist.txt — сначала выполните нарезку и извлечение признаков.")
+    cmd = command(
+        "rvc.training.train",
+        "--experiment_dir",
+        logs_dir,
+        "--model_name",
+        model_name,
+        "--total_epoch",
+        int(total_epoch),
+        "--save_every_epoch",
+        int(save_every_epoch),
+        "--batch_size",
+        int(batch_size),
+        "--sample_rate",
+        int(sample_rate),
+        "--vocoder",
+        vocoder,
+        "--optimizer",
+        optimizer,
+        "--gpus",
+        (gpus or "0").strip(),
+        "--save_to_zip",
+        "true" if save_to_zip else "false",
+        "--save_half",
+        "true" if save_half else "false",
+    )
+
+    notes, (resolved_g, resolved_d) = yield from _drain(
+        _resolve_pretrains(pretrain, pretrain_g, pretrain_d, int(sample_rate), exp_dir),
+    )
+    if resolved_g and resolved_d:
+        cmd += ["--pretrain_g", resolved_g, "--pretrain_d", resolved_d]
+    yield from run_job(f"Обучение «{model_name}»", cmd, prefix="\n".join(notes))
+
+
+def training_tab():
+    model_name = gr.Textbox(label="Имя модели", placeholder="MyVoice")
+
+    with gr.Accordion("Подготовка данных", open=False):
+        with gr.Group():
+            with gr.Row(equal_height=True):
+                with gr.Column(scale=1):
+                    dataset_folder = gr.Textbox(label="Папка с датасетом", placeholder="/путь/к/аудио")
+                    dataset_files = gr.File(label="…или загрузите файлы", file_count="multiple", height=260)
+                with gr.Column(scale=1):
+                    with gr.Row(equal_height=True):
+                        sample_rate = gr.Dropdown(SAMPLE_RATES, value=48000, label="Частота (Hz)")
+                        f0_method = gr.Dropdown(F0_METHODS, value="rmvpe", label="Метод F0")
+                        normalize = gr.Checkbox(value=True, label="Нормализация")
+                    with gr.Row(equal_height=True):
+                        segment_len = gr.Slider(minimum=1.0, maximum=10.0, step=0.1, value=3.0, label="Сегмент (сек)")
+                        include_mutes = gr.Slider(minimum=0, maximum=10, step=1, value=2, label="Мьют-файлов")
+                    with gr.Row(equal_height=True):
+                        slice_btn = gr.Button("1. Нарезать", variant="primary")
+                        extract_btn = gr.Button("2. Извлечь", variant="primary", interactive=False)
+                        index_btn = gr.Button("3. Построить индекс", interactive=False)
+
+    with gr.Group():
+        _section_hint("checkpoint.pth", "tensorboard --logdir logs")
+        with gr.Row(equal_height=True):
+            total_epoch = gr.Slider(minimum=1, maximum=10000, step=1, value=300, label="Всего эпох")
+            save_every_epoch = gr.Slider(minimum=1, maximum=100, step=1, value=25, label="Сохранять каждые N")
+            batch_size = gr.Slider(minimum=1, maximum=128, step=1, value=8, label="Батч")
+        with gr.Accordion("Дополнительно", open=False):
+            with gr.Row(equal_height=True):
+                vocoder = gr.Dropdown(VOCODERS, value="HiFi-GAN", label="Вокодер")
+                optimizer = gr.Dropdown(OPTIMIZERS, value="AdamW", label="Оптимизатор")
+                gpus = gr.Textbox("0", label="GPU")
+            with gr.Row(equal_height=True):
+                pretrain = gr.Dropdown(
+                    pretrain_choices(48000),
+                    value=DEFAULT_PRETRAIN,
+                    label="Претрейн",
+                    scale=1,
+                )
+                pretrain_g = gr.Textbox(label="Свой претрейн G", placeholder="Путь к .pth — вместо встроенного", scale=2)
+                pretrain_d = gr.Textbox(label="Свой претрейн D", placeholder="Путь к .pth — вместо встроенного", scale=2)
+            with gr.Row(equal_height=True):
+                save_to_zip = gr.Checkbox(False, label="Собрать ZIP в конце")
+                save_half = gr.Checkbox(True, label="Веса float16")
+        with gr.Row(equal_height=True):
+            train_btn = gr.Button("Запустить обучение", variant="primary")
+            stop_btn = gr.Button("Завершить процесс", variant="stop")
+
+    with gr.Group():
+        log = gr.Textbox(label="Журнал", lines=12, max_lines=12)
+        board_btn = gr.Button("📊 TensorBoard", variant="secondary")
+        with gr.Accordion("Параметры TensorBoard", open=False):
+            with gr.Row(equal_height=True):
+                board_port = gr.Number(value=DEFAULT_TENSORBOARD_PORT, label="Порт", precision=0)
+                board_base_url = gr.Textbox(
+                    label="Базовый адрес (за прокси)",
+                    placeholder="http://127.0.0.1:6006/tensorboard",
+                    info="Оставьте пустым при запуске на своём компьютере.",
+                )
+        board_frame = gr.HTML("")
+
+    step_buttons = [slice_btn, extract_btn, index_btn]
+    model_name.change(_step_states, inputs=model_name, outputs=step_buttons, api_name=False)
+    sample_rate.change(_refresh_pretrains, inputs=[sample_rate, pretrain], outputs=pretrain, api_name=False)
+    slice_btn.click(
+        _slice_dataset,
+        inputs=[model_name, dataset_files, dataset_folder, sample_rate, segment_len, normalize],
+        outputs=log,
+    ).then(_step_states, inputs=model_name, outputs=step_buttons, api_name=False)
+    extract_btn.click(
+        _extract_features,
+        inputs=[model_name, sample_rate, f0_method, include_mutes],
+        outputs=log,
+    ).then(_step_states, inputs=model_name, outputs=step_buttons, api_name=False)
+    train_btn.click(
+        _train_model,
+        inputs=[
+            model_name,
+            sample_rate,
+            total_epoch,
+            save_every_epoch,
+            batch_size,
+            vocoder,
+            optimizer,
+            gpus,
+            pretrain,
+            pretrain_g,
+            pretrain_d,
+            save_to_zip,
+            save_half,
+        ],
+        outputs=log,
+    )
+    index_btn.click(_train_index, inputs=model_name, outputs=log).then(
+        _step_states, inputs=model_name, outputs=step_buttons, api_name=False
+    )
+    board_btn.click(_open_board, inputs=[board_port, board_base_url], outputs=board_frame)
+    stop_btn.click(request_stop, outputs=log, queue=False, api_name=False)

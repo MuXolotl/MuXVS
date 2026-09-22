@@ -23,41 +23,47 @@ import gradio as gr
 from assets.model_installer import check_and_install_models
 from assets.notebook_check import colab_check, kaggle_check
 from assets.version import __version__, __version_info__
-from gradio_ui.components.helpers import output_message
-from gradio_ui.inference import edge_tts_tab, inference_tab
-from gradio_ui.install import (
-    files_upload,
-    install_embedder_tab,
-    url_zip_download,
-    zip_upload,
-)
-from gradio_ui.welcome import welcome_tab
+from gradio_ui.common import UVR_MODELS_DIR, UVR_OUTPUT_DIR
+from gradio_ui.inference import conversion_tab
+from gradio_ui.models import models_tab
+from gradio_ui.tools import tools_tab
+from gradio_ui.training import training_tab
 
 # Constants
 DEFAULT_SERVER_NAME = "127.0.0.1"
 DEFAULT_PORT = 4000
 MAX_PORT_ATTEMPTS = 10
 
-OUTPUT_MESSAGE_COMPONENT = output_message()
+APP_CSS = """
+footer{display:none !important}
+.gradio-container{width:100% !important;max-width:1400px !important;margin:0 auto !important}
+.app-header{text-align:center !important}
+.tab-container{justify-content:center !important}
+@media (max-width:768px){
+.tab-container{justify-content:flex-start !important;overflow-x:auto !important;max-width:100% !important}
+.tab-container>button{flex-shrink:0 !important}
+}
+"""
+
 RUN_FROM_JUPYTER_NOTEBOOKS = colab_check() or kaggle_check()
 
 
-def check_poluvr() -> tuple[str, str, str, Any]:
-    """Проверяет, можно ли импортировать PolUVR, и возвращает данные для UI."""
+def check_uvr() -> tuple[str, str, str, Any]:
+    """Проверяет, доступен ли встроенный UVR (нужен установленный PolUVR)."""
     try:
-        from PolUVR.utils import PolUVR_UI as poluvr_ui
+        from gradio_ui.uvr import uvr_tab
 
-        return "UVR | PolUVR", "", "", poluvr_ui
+        return "UVR", "", "", uvr_tab
     except Exception:
         return (
-            "UVR | PolUVR ⚠️",
-            "Технические чоколадки: UVR временно отдыхает.",
+            "UVR ⚠️",
+            "UVR недоступен: не установлен PolUVR или его зависимости.",
             traceback.format_exc(),
             None,
         )
 
 
-uvr_title, uvr_message, uvr_error, PolUVR_UI = check_poluvr()
+uvr_title, uvr_message, uvr_error, uvr_ui = check_uvr()
 
 
 def is_offline_mode() -> bool:
@@ -75,52 +81,42 @@ def get_title() -> str:
 # Gradio Interface
 with gr.Blocks(
     title=get_title(),
-    css="footer{display:none !important}",
+    css=APP_CSS,
     theme=gr.themes.Soft(
-        primary_hue="green",
-        secondary_hue="green",
+        primary_hue="indigo",
+        secondary_hue="slate",
         neutral_hue="neutral",
         spacing_size="sm",
         radius_size="lg",
     ),
 ) as MuXVS:
-    with gr.Tab("Велком/Контакты"):
-        welcome_tab()
+    gr.Markdown(
+        elem_classes=["app-header"],
+        value=f"# MuXVS <small>v{__version__}</small>\n"
+        "[Telegram](https://t.me/politrees) · "
+        "[Чат](https://t.me/+GMTP7hZqY0E4OGRi) · "
+        "[YouTube](https://www.youtube.com/@Politrees) · "
+        "[GitHub](https://github.com/MuXolotl/MuXVS)",
+    )
 
-    with gr.Tab("RVC | Преобразование голоса"):
-        inference_tab()
+    with gr.Tab("Конвертация"):
+        conversion_tab(include_tts=not is_offline_mode())
 
-    if not is_offline_mode():
-        with gr.Tab("TTS | Преобразование текста в речь"):
-            edge_tts_tab()
+    with gr.Tab("Обучение"):
+        training_tab()
 
     with gr.Tab(uvr_title):
-        if PolUVR_UI is not None:
-            if is_offline_mode():
-                gr.HTML(
-                    "<center><h3>PolUVR не будет функционировать без подключения к интернету, если вы ранее не установили необходимые модели.</h3></center>",
-                )
-
-            PolUVR_UI("models/UVR_models", "output/UVR_output")
+        if uvr_ui is not None:
+            uvr_ui(UVR_MODELS_DIR, UVR_OUTPUT_DIR)
         else:
             gr.HTML(f"<center><h2>{uvr_message}</h2></center>")
             gr.Code(value=uvr_error, language="python", interactive=False, show_label=False)
 
-    with gr.Tab("Загрузка моделей"):
-        if not is_offline_mode():
-            with gr.Tab("Загрузка RVC моделей"):
-                url_zip_download(OUTPUT_MESSAGE_COMPONENT)
-                zip_upload(OUTPUT_MESSAGE_COMPONENT)
-                files_upload(OUTPUT_MESSAGE_COMPONENT)
-                OUTPUT_MESSAGE_COMPONENT.render()
+    with gr.Tab("Модели"):
+        models_tab(is_offline_mode())
 
-            with gr.Tab("Загрузка эмбеддеров"):
-                install_embedder_tab()
-        else:
-            with gr.Tab("Загрузка RVC моделей"):
-                zip_upload(OUTPUT_MESSAGE_COMPONENT)
-                files_upload(OUTPUT_MESSAGE_COMPONENT)
-                OUTPUT_MESSAGE_COMPONENT.render()
+    with gr.Tab("Инструменты"):
+        tools_tab()
 
 
 def launch_gradio(server_name: str, server_port: int) -> None:
@@ -154,8 +150,8 @@ if __name__ == "__main__":
         print(f"║{'[!] Pre-release версия':^42}║")
     print(f"╚{'═' * 42}╝\n")
 
-    if PolUVR_UI is None:
-        print("⚠️ [PolUVR] Импорт не удался, вкладка UVR будет отключена!")
+    if uvr_ui is None:
+        print("⚠️ [UVR] Импорт не удался, вкладка UVR будет отключена!")
 
     print("Запуск интерфейса MuXVS. Подождите...")
     check_and_install_models()  # Checking and installing models

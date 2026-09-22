@@ -11,7 +11,6 @@
 
 import argparse
 import os
-import sys
 
 import torch
 
@@ -23,10 +22,15 @@ def split_checkpoint(checkpoint_path: str, output_dir: str):
         checkpoint_path: Путь к единому чекпоинту (checkpoint.pth)
         output_dir: Папка для сохранения G_pretrain.pth и D_pretrain.pth
 
+    Returns:
+        Текст с путями сохранённых файлов.
+
+    Raises:
+        FileNotFoundError: если чекпоинт не найден.
+        ValueError: если файл не является единым чекпоинтом.
     """
     if not os.path.exists(checkpoint_path):
-        print(f"Ошибка: файл '{checkpoint_path}' не найден!")
-        sys.exit(1)
+        raise FileNotFoundError(f"Файл '{checkpoint_path}' не найден!")
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -40,9 +44,7 @@ def split_checkpoint(checkpoint_path: str, output_dir: str):
 
     # Проверка формата
     if "generator" not in checkpoint or "discriminator" not in checkpoint:
-        print("Ошибка: файл не является единым чекпоинтом нового формата!")
-        print("Ожидается структура с ключами 'generator' и 'discriminator'.")
-        sys.exit(1)
+        raise ValueError("Файл не является единым чекпоинтом: нужны ключи 'generator' и 'discriminator'.")
 
     epoch = checkpoint.get("epoch", 0)
     learning_rate = checkpoint.get("learning_rate", 1e-4)

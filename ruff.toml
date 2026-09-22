@@ -2,5 +2,8 @@ target-version = "py313"
 line-length = 140
 preview = false
 
+# Справочные блокноты других проектов в assets/ — не код проекта, не линтуем.
+exclude = ["assets/*.ipynb"]
+
 [lint]
 select = ["ALL"]
