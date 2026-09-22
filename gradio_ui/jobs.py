@@ -4,6 +4,7 @@
 поэтому запускаются отдельным процессом — как в официальном RVC WebUI.
 """
 
+import io
 import os
 import signal
 import subprocess
@@ -56,10 +57,6 @@ def _spawn(cmd: list) -> subprocess.Popen:
         "stdout": subprocess.PIPE,
         "stderr": subprocess.STDOUT,
         "stdin": subprocess.DEVNULL,
-        "text": True,
-        "encoding": "utf-8",
-        "errors": "replace",
-        "bufsize": 1,
         "env": {**os.environ, "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"},
     }
     if os.name == "nt":
@@ -68,6 +65,8 @@ def _spawn(cmd: list) -> subprocess.Popen:
         kwargs["start_new_session"] = True
     with _lock:
         _process = subprocess.Popen(cmd, **kwargs)  # noqa: S603 — команда собрана из констант
+        # Текстовая обёртка без трансляции \r: это живой прогресс tqdm, а не конец строки.
+        _process.stdout = io.TextIOWrapper(_process.stdout, encoding="utf-8", errors="replace", newline="")
         return _process
 
 
@@ -96,13 +95,34 @@ def run_job(title: str, commands: list, prefix: str = ""):
             lines.append(f"$ {' '.join(cmd)}")
             proc = _spawn(cmd)
             last_yield = 0.0
-            for raw in proc.stdout:
-                text = raw.replace("\r", "\n").strip()
-                if text:
-                    lines.extend(part for part in text.split("\n") if part.strip())
+            buffer = ""
+            live = ""
+            while True:
+                # Читаем посимвольно: tqdm минутами шлёт только \r без \n,
+                # построчное чтение на это время глухо виснет.
+                chunk = proc.stdout.read(1)
+                if chunk:
+                    if chunk in "\r\n":
+                        text = buffer.strip()
+                        buffer = ""
+                        if chunk == "\n":
+                            live = ""
+                            if text:
+                                lines.append(text)
+                        elif text:
+                            live = text
+                    else:
+                        buffer += chunk
+                elif proc.poll() is not None:
+                    break
+                else:
+                    time.sleep(0.05)
                 if time.monotonic() - last_yield >= 0.3:
                     last_yield = time.monotonic()
-                    yield "\n".join(lines)
+                    yield "\n".join([*lines, live] if live else lines)
+            tail = buffer.strip()
+            if tail:
+                lines.append(tail)
             proc.wait()
             with _lock:
                 stopped = _stop_requested
