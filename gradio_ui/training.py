@@ -9,12 +9,12 @@ import shutil
 
 import gradio as gr
 
+from assets.env_paths import require_training_logs_dir, training_logs_dir
 from assets.model_installer import ensure_pretrains
 from assets.pretrains import DEFAULT_PRETRAIN, NO_PRETRAIN, pretrain_choices
 from gradio_ui.jobs import command, request_stop, run_job
 from gradio_ui.tensorboard import DEFAULT_TENSORBOARD_PORT, launch_tensorboard
 
-LOGS_DIR = os.path.join(os.getcwd(), "logs")
 SAMPLE_RATES = [32000, 40000, 48000]
 VOCODERS = ["HiFi-GAN", "MRF HiFi-GAN", "RefineGAN"]
 OPTIMIZERS = ["AdamW", "AdaBelief", "PolOpt"]
@@ -32,7 +32,15 @@ def _section_hint(code1: str, code2: str):
 
 
 def _exp_dir(model_name: str) -> str:
-    return os.path.join(LOGS_DIR, model_name.strip())
+    return os.path.join(training_logs_dir(), model_name.strip())
+
+
+def _require_logs_dir() -> str:
+    """Корень экспериментов для действий; в Colab без Drive — понятная ошибка."""
+    try:
+        return require_training_logs_dir()
+    except RuntimeError as error:
+        raise gr.Error(str(error)) from error
 
 
 def _require_name(model_name: str) -> str:
@@ -80,7 +88,7 @@ def _refresh_pretrains(sample_rate, current):
 
 def _open_board(port, base_url):
     """Запускает TensorBoard и возвращает HTML для встраивания."""
-    url = launch_tensorboard(LOGS_DIR, int(port or DEFAULT_TENSORBOARD_PORT))
+    url = launch_tensorboard(_require_logs_dir(), int(port or DEFAULT_TENSORBOARD_PORT))
     if url.startswith("Ошибка"):
         return f"<p style='color:#e5534b'>{url}</p>"
 
@@ -115,6 +123,7 @@ def _input_root(model_name: str, files, folder: str) -> str:
 
 def _slice_dataset(model_name, files, folder, sample_rate, segment_len, normalize):
     model_name = _require_name(model_name)
+    _require_logs_dir()
     input_root = _input_root(model_name, files, folder)
     yield from run_job(
         f"Нарезка датасета «{model_name}»",
@@ -131,6 +140,7 @@ def _slice_dataset(model_name, files, folder, sample_rate, segment_len, normaliz
 
 def _extract_features(model_name, sample_rate, f0_method, include_mutes):
     model_name = _require_name(model_name)
+    _require_logs_dir()
     sliced = os.path.join(_exp_dir(model_name), "data", "sliced_audios")
     if not os.path.isdir(sliced) or not os.listdir(sliced):
         raise gr.Error("Нет нарезанных сегментов — сначала выполните нарезку.")
@@ -148,6 +158,7 @@ def _extract_features(model_name, sample_rate, f0_method, include_mutes):
 
 def _train_index(model_name):
     model_name = _require_name(model_name)
+    _require_logs_dir()
     features = os.path.join(_exp_dir(model_name), "data", "features")
     if not os.path.isdir(features) or not os.listdir(features):
         raise gr.Error("Нет признаков — сначала извлеките их.")
@@ -216,13 +227,14 @@ def _train_model(
     save_half,
 ):
     model_name = _require_name(model_name)
+    logs_dir = _require_logs_dir()
     exp_dir = _exp_dir(model_name)
     if not os.path.isfile(os.path.join(exp_dir, "data", "filelist.txt")):
         raise gr.Error("Нет filelist.txt — сначала выполните нарезку и извлечение признаков.")
     cmd = command(
         "rvc.training.train",
         "--experiment_dir",
-        LOGS_DIR,
+        logs_dir,
         "--model_name",
         model_name,
         "--total_epoch",

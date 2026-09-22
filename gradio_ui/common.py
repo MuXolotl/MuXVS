@@ -11,7 +11,6 @@ RVC_MODELS_DIR = os.path.join(os.getcwd(), "models", "RVC_models")
 RVC_OUTPUT_DIR = os.path.join(os.getcwd(), "output", "RVC_output")
 UVR_MODELS_DIR = os.path.join(os.getcwd(), "models", "UVR_models")
 UVR_OUTPUT_DIR = os.path.join(os.getcwd(), "output", "UVR_output")
-LOGS_DIR = os.path.join(os.getcwd(), "logs")
 
 OUTPUT_FORMATS = ["wav", "flac", "mp3", "ogg", "m4a"]
 F0_METHODS = ["hpa-rmvpe", "rmvpe+", "rmvpe", "fcpe", "crepe", "crepe-tiny"]
