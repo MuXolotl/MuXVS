@@ -20,6 +20,8 @@
 
 Вручную: `python app.py [--port 4000] [--server-name 127.0.0.1] [--offline]`.
 
+Запуск в Google Colab: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MuXolotl/MuXVS/blob/arena/01a0c5ce-muxvs/assets/MuXVS_Colab.ipynb) — установка, проверка окружения и запуск интерфейса с выбором способа доступа.
+
 ## CLI
 
 ```bash
