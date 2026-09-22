@@ -5,7 +5,8 @@
 хранилище). Касается только обучения: остальное всегда пишется в репозиторий.
 
 Colab повторяет схему PolTrain_Colab.ipynb: код в /content/, модели в
-SAVE_DIR на Google Drive.
+SAVE_DIR на Google Drive. Kaggle — схему PolTrain_kaggle.ipynb: код
+в /kaggle/working/, модели в SAVE_DIR там же.
 """
 
 import os
@@ -14,6 +15,7 @@ from assets.notebook_check import colab_check, kaggle_check
 
 COLAB_DRIVE_MOUNT = "/content/drive"
 COLAB_TRAINING_DIR = "/content/drive/MyDrive/MuXVS"
+KAGGLE_TRAINING_DIR = "/kaggle/working/Models"
 
 
 def training_logs_dir() -> str:
@@ -21,8 +23,7 @@ def training_logs_dir() -> str:
     if colab_check():
         return COLAB_TRAINING_DIR
     if kaggle_check():
-        # TODO: схема хранения из PolTrain_kaggle.ipynb, когда блокнот появится в ветке.
-        pass
+        return KAGGLE_TRAINING_DIR
     return os.path.join(os.getcwd(), "logs")
 
 
