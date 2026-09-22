@@ -37,6 +37,7 @@ MAX_PORT_ATTEMPTS = 10
 APP_CSS = """
 footer{display:none !important}
 .gradio-container{max-width:1400px !important}
+.app-header{text-align:center !important}
 """
 
 RUN_FROM_JUPYTER_NOTEBOOKS = colab_check() or kaggle_check()
@@ -85,7 +86,8 @@ with gr.Blocks(
     ),
 ) as MuXVS:
     gr.Markdown(
-        f"# MuXVS <small>v{__version__}</small>\n"
+        elem_classes=["app-header"],
+        value=f"# MuXVS <small>v{__version__}</small>\n"
         "[Telegram](https://t.me/politrees) · "
         "[Чат](https://t.me/+GMTP7hZqY0E4OGRi) · "
         "[YouTube](https://www.youtube.com/@Politrees) · "
