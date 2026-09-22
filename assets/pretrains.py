@@ -83,12 +83,6 @@ PRETRAINS = {
     "RIN E3": {
         "40k": ("RIN_E/D_RIN_E3.pth", "RIN_E/G_RIN_E3.pth"),
     },
-    "GuideVocalPretrain": {
-        "48k": (
-            "GuideVocalPretrain/D_GuideVocalPretrain.pth",
-            "GuideVocalPretrain/G_GuideVocalPretrain.pth",
-        ),
-    },
     "Anime": {
         "32k": ("Anime/f0D_AnimePreTrain.pth", "Anime/f0G_AnimePreTrain.pth"),
     },
@@ -121,6 +115,18 @@ PRETRAINS = {
     },
     "Rigel": {
         "32k": ("Rigel/D_Rigel_32k.pth", "Rigel/G_Rigel_32k.pth"),
+    },
+    "VocalCoreTry3b": {
+        "48k": ("VocalCore/D_VocalCoreTry3b.pth", "VocalCore/G_VocalCoreTry3b.pth"),
+    },
+    "VocalCore": {
+        "48k": ("VocalCore/D_VocalCore.pth", "VocalCore/G_VocalCore.pth"),
+    },
+    "GuideVocalPretrain": {
+        "48k": (
+            "GuideVocalPretrain/D_GuideVocalPretrain.pth",
+            "GuideVocalPretrain/G_GuideVocalPretrain.pth",
+        ),
     },
     "Singer 2": {
         "32k": ("Singer/f0D_SingerPreTrain2.pth", "Singer/f0G_SingerPreTrain2.pth"),
