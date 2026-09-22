@@ -28,6 +28,7 @@ def split_checkpoint(checkpoint_path: str, output_dir: str):
     Raises:
         FileNotFoundError: если чекпоинт не найден.
         ValueError: если файл не является единым чекпоинтом.
+
     """
     if not os.path.exists(checkpoint_path):
         raise FileNotFoundError(f"Файл '{checkpoint_path}' не найден!")
