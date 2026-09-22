@@ -99,11 +99,12 @@ def _convert_batch(
 ):
     from rvc.inference.infer import rvc_batch_infer
 
-    return rvc_batch_infer(
+    output_dir = _unique_batch_dir()
+    summary = rvc_batch_infer(
         rvc_model=rvc_model,
         dir_input=dir_input,
         files=files,
-        output_dir=_unique_batch_dir(),
+        output_dir=output_dir,
         f0_method=f0_method,
         f0_min=f0_min,
         f0_max=f0_max,
@@ -122,6 +123,14 @@ def _convert_batch(
         output_format=output_format,
         progress=progress,
     )
+    results = sorted(
+        os.path.join(output_dir, name)
+        for name in os.listdir(output_dir)
+        if os.path.isfile(os.path.join(output_dir, name))
+    )
+    if not results:
+        raise gr.Error(summary)
+    return results
 
 
 def _single_conversion_tab():
@@ -233,7 +242,13 @@ def _batch_conversion_tab():
             variant="primary",
             scale=2,
         )
-        batch_info = gr.Textbox(label="Результат", lines=8, scale=9)
+        batch_result = gr.File(
+            label="Результат",
+            file_count="multiple",
+            height=190,
+            interactive=False,
+            scale=9,
+        )
         with gr.Column(min_width=160):
             output_format = gr.Dropdown(
                 value="mp3",
@@ -266,7 +281,7 @@ def _batch_conversion_tab():
             settings["stereo_sound"],
             settings["audio_upscaling"],
         ],
-        outputs=[batch_info],
+        outputs=[batch_result],
     )
 
 
