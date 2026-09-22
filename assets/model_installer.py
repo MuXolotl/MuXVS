@@ -23,8 +23,6 @@ os.makedirs(FLASH_SR_DIR, exist_ok=True)
 os.makedirs(PRETRAINS_DIR, exist_ok=True)
 
 
-
-
 def dl_model(link, model_name, dir_name):
     file_path = os.path.join(dir_name, model_name)
     if os.path.exists(file_path):

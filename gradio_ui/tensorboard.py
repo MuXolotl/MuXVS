@@ -16,7 +16,8 @@ DEFAULT_TENSORBOARD_PORT = 6006
 # Теги скаляров, закрепляемые в открытом TensorBoard (пишет rvc/training/train.py).
 PINNED_TAGS = ["loss/g/mel", "loss/g/total"]
 
-_TENSORBOARD = None
+# Держим запущенные серверы, чтобы их не собрал GC раньше процесса интерфейса.
+_TENSORBOARD_SERVERS = []
 _TENSORBOARD_URL = None
 _TENSORBOARD_LOCK = threading.Lock()
 
@@ -34,7 +35,7 @@ def launch_tensorboard(logs_dir: str, port: int = DEFAULT_TENSORBOARD_PORT) -> s
     Возвращает ссылку с закреплёнными карточками или строку 'Ошибка...'.
     Сервер живёт столько же, сколько процесс интерфейса.
     """
-    global _TENSORBOARD, _TENSORBOARD_URL
+    global _TENSORBOARD_URL
 
     os.makedirs(logs_dir, exist_ok=True)
 
@@ -45,12 +46,10 @@ def launch_tensorboard(logs_dir: str, port: int = DEFAULT_TENSORBOARD_PORT) -> s
             from tensorboard import program
 
             board = program.TensorBoard()
-            board.configure(
-                argv=[None, "--logdir", logs_dir, "--port", str(port), "--path_prefix", "/tensorboard"]
-            )
+            board.configure(argv=[None, "--logdir", logs_dir, "--port", str(port), "--path_prefix", "/tensorboard"])
             url = board.launch()
         except Exception as error:
             return f"Ошибка запуска TensorBoard: {error}"
-        _TENSORBOARD = board
+        _TENSORBOARD_SERVERS.append(board)
         _TENSORBOARD_URL = _pinned_url(url, PINNED_TAGS)
         return _TENSORBOARD_URL

@@ -123,11 +123,7 @@ def _convert_batch(
         output_format=output_format,
         progress=progress,
     )
-    results = sorted(
-        os.path.join(output_dir, name)
-        for name in os.listdir(output_dir)
-        if os.path.isfile(os.path.join(output_dir, name))
-    )
+    results = sorted(os.path.join(output_dir, name) for name in os.listdir(output_dir) if os.path.isfile(os.path.join(output_dir, name)))
     if not results:
         raise gr.Error(summary)
     return results
@@ -185,12 +181,8 @@ def _single_conversion_tab():
     local_file.change(process_file_upload, inputs=local_file, outputs=[song_input, local_file], api_name=False)
 
     # Обновление кнопок
-    show_upload_button.click(
-        swap_visibility, outputs=[upload_file, enter_local_file, song_input, local_file], api_name=False
-    )
-    show_enter_button.click(
-        swap_visibility, outputs=[enter_local_file, upload_file, song_input, local_file], api_name=False
-    )
+    show_upload_button.click(swap_visibility, outputs=[upload_file, enter_local_file, song_input, local_file], api_name=False)
+    show_enter_button.click(swap_visibility, outputs=[enter_local_file, upload_file, song_input, local_file], api_name=False)
     show_upload_button.click(swap_buttons, outputs=[show_upload_button, show_enter_button], api_name=False)
     show_enter_button.click(swap_buttons, outputs=[show_enter_button, show_upload_button], api_name=False)
 

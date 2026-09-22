@@ -315,12 +315,8 @@ def training_tab():
                     label="Претрейн",
                     scale=1,
                 )
-                pretrain_g = gr.Textbox(
-                    label="Свой претрейн G", placeholder="Путь к .pth — вместо встроенного", scale=2
-                )
-                pretrain_d = gr.Textbox(
-                    label="Свой претрейн D", placeholder="Путь к .pth — вместо встроенного", scale=2
-                )
+                pretrain_g = gr.Textbox(label="Свой претрейн G", placeholder="Путь к .pth — вместо встроенного", scale=2)
+                pretrain_d = gr.Textbox(label="Свой претрейн D", placeholder="Путь к .pth — вместо встроенного", scale=2)
             with gr.Row(equal_height=True):
                 save_to_zip = gr.Checkbox(False, label="Собрать ZIP в конце")
                 save_half = gr.Checkbox(True, label="Веса float16")

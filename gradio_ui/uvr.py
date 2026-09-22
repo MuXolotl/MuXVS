@@ -114,56 +114,71 @@ def _separate(
     print(f"\n🎵 UVR [{arch}] — {base_name} — {model_key}")
 
     if arch == "Roformer":
-        model_filename, extra = ROFORMER_MODELS[model_key], {
-            "mdxc_params": {
-                "segment_size": rof_seg_size,
-                "override_model_segment_size": rof_override_seg_size,
-                "batch_size": batch_size,
-                "overlap": rof_overlap,
-                "pitch_shift": rof_pitch_shift,
+        model_filename, extra = (
+            ROFORMER_MODELS[model_key],
+            {
+                "mdxc_params": {
+                    "segment_size": rof_seg_size,
+                    "override_model_segment_size": rof_override_seg_size,
+                    "batch_size": batch_size,
+                    "overlap": rof_overlap,
+                    "pitch_shift": rof_pitch_shift,
+                },
             },
-        }
+        )
     elif arch == "MDX23C":
-        model_filename, extra = MDX23C_MODELS[model_key], {
-            "mdxc_params": {
-                "segment_size": mdxc_seg_size,
-                "override_model_segment_size": mdxc_override_seg_size,
-                "batch_size": batch_size,
-                "overlap": mdxc_overlap,
-                "pitch_shift": mdxc_pitch_shift,
+        model_filename, extra = (
+            MDX23C_MODELS[model_key],
+            {
+                "mdxc_params": {
+                    "segment_size": mdxc_seg_size,
+                    "override_model_segment_size": mdxc_override_seg_size,
+                    "batch_size": batch_size,
+                    "overlap": mdxc_overlap,
+                    "pitch_shift": mdxc_pitch_shift,
+                },
             },
-        }
+        )
     elif arch == "MDX-NET":
-        model_filename, extra = MDXNET_MODELS[model_key], {
-            "mdx_params": {
-                "hop_length": mdx_hop_length,
-                "segment_size": mdx_seg_size,
-                "overlap": mdx_overlap,
-                "batch_size": batch_size,
-                "enable_denoise": mdx_denoise,
+        model_filename, extra = (
+            MDXNET_MODELS[model_key],
+            {
+                "mdx_params": {
+                    "hop_length": mdx_hop_length,
+                    "segment_size": mdx_seg_size,
+                    "overlap": mdx_overlap,
+                    "batch_size": batch_size,
+                    "enable_denoise": mdx_denoise,
+                },
             },
-        }
+        )
     elif arch == "VR Arch":
-        model_filename, extra = VR_ARCH_MODELS[model_key], {
-            "vr_params": {
-                "batch_size": batch_size,
-                "window_size": vr_window_size,
-                "aggression": vr_aggression,
-                "enable_tta": vr_tta,
-                "enable_post_process": vr_post_process,
-                "post_process_threshold": vr_post_process_threshold,
-                "high_end_process": vr_high_end_process,
+        model_filename, extra = (
+            VR_ARCH_MODELS[model_key],
+            {
+                "vr_params": {
+                    "batch_size": batch_size,
+                    "window_size": vr_window_size,
+                    "aggression": vr_aggression,
+                    "enable_tta": vr_tta,
+                    "enable_post_process": vr_post_process,
+                    "post_process_threshold": vr_post_process_threshold,
+                    "high_end_process": vr_high_end_process,
+                },
             },
-        }
+        )
     else:
-        model_filename, extra = DEMUCS_v4_MODELS[model_key], {
-            "demucs_params": {
-                "segment_size": demucs_seg_size,
-                "shifts": demucs_shifts,
-                "overlap": demucs_overlap,
-                "segments_enabled": demucs_segments_enabled,
+        model_filename, extra = (
+            DEMUCS_v4_MODELS[model_key],
+            {
+                "demucs_params": {
+                    "segment_size": demucs_seg_size,
+                    "shifts": demucs_shifts,
+                    "overlap": demucs_overlap,
+                    "segments_enabled": demucs_segments_enabled,
+                },
             },
-        }
+        )
 
     try:
         yield _reset_stems()

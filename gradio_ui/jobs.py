@@ -41,6 +41,7 @@ def _kill_process_tree(proc: subprocess.Popen, sig: int) -> None:
         else:
             os.killpg(os.getpgid(proc.pid), sig)
     except (OSError, ProcessLookupError):
+        # Процесс уже мёртв или группа недоступна — останавливать нечего.
         pass
 
 
@@ -152,9 +153,9 @@ def run_job(title: str, commands: list, prefix: str = ""):
                 yield "\n".join(lines)
                 return
     finally:
+        # Флаг не сбрасываем: следующий запуск выставит его сам, читателей между запусками нет.
         with _lock:
             _process = None
-            _stop_requested = False
 
     lines.append("✓ Готово.")
     yield "\n".join(lines)
