@@ -86,7 +86,7 @@ with gr.Blocks(
 ) as MuXVS:
     gr.Markdown(
         f"# MuXVS <small>v{__version__}</small>\n"
-        "[Telegram](https://t.me/pol1trees) · "
+        "[Telegram](https://t.me/politrees) · "
         "[Чат](https://t.me/+GMTP7hZqY0E4OGRi) · "
         "[YouTube](https://www.youtube.com/@Politrees) · "
         "[GitHub](https://github.com/MuXolotl/MuXVS)",
