@@ -12,6 +12,7 @@ logging.basicConfig(level=logging.WARNING)
 warnings.filterwarnings("ignore")
 
 import numpy as np
+import soundfile as sf
 import torch
 from tqdm import tqdm
 
@@ -42,15 +43,27 @@ class DataPreprocessor:
         # Инициализация моделей
         self.model_rmvpe = RMVPEF0(self.device)
         self.hubert_model = self._load_hubert_model()
+        # process_files переключит на медленный путь, если 16 кГц-кэша нет
+        self.use_16k_cache = True
 
     def _load_hubert_model(self):
         """Загрузка модели HuBERT"""
         hubert_model_path = os.path.join(os.getcwd(), "assets", "models", "embedders", "contentvec_base.pt")
         return load_model(hubert_model_path).to(self.device).eval()
 
+    def _read_16k(self, path):
+        """Моно 16 кГц для F0/HuBERT: из кэша нарезки — напрямую, иначе — ресемпл."""
+        if self.use_16k_cache:
+            wav, sr = sf.read(path)
+            assert sr == 16000
+            if wav.ndim == 2:
+                wav = wav.mean(-1)
+            return np.ascontiguousarray(wav, dtype=np.float32)
+        return load_audio(path, self.sample_rate)
+
     def compute_f0(self, path, f0_method):
         """Вычисление F0"""
-        audio = load_audio(path, self.sample_rate)
+        audio = self._read_16k(path)
         return self.model_rmvpe.get_f0(audio, self.f0_min, self.f0_max, f0_method)
 
     def coarse_f0(self, f0):
@@ -65,7 +78,7 @@ class DataPreprocessor:
 
     def extract_features(self, wav_path):
         """Извлечение признаков HuBERT"""
-        audio = load_audio(wav_path, self.sample_rate)
+        audio = self._read_16k(wav_path)
         source = torch.from_numpy(audio).float().view(1, -1).to(self.device)
         padding_mask = torch.zeros(source.shape, dtype=torch.bool, device=self.device)
 
@@ -75,7 +88,14 @@ class DataPreprocessor:
 
     def process_files(self):
         """Основной метод обработки файлов"""
-        inp_root = f"{exp_dir}/data/sliced_audios"
+        cache_root = f"{exp_dir}/data/sliced_audios_16k"
+        if os.path.isdir(cache_root) and any(name.endswith(".wav") for name in os.listdir(cache_root)):
+            inp_root = cache_root
+        else:
+            # Каталог нарезан до появления 16 кГц-кэша: работает, но медленно
+            inp_root = f"{exp_dir}/data/sliced_audios"
+            self.use_16k_cache = False
+            print("⚠ Нет sliced_audios_16k — читаю с ресемплом. Перезапустите нарезку для скорости.")
         f0_quant_path = f"{exp_dir}/data/f0_quantized"
         f0_voiced_path = f"{exp_dir}/data/f0_voiced"
         features_path = f"{exp_dir}/data/features"
