@@ -39,6 +39,10 @@ footer{display:none !important}
 .gradio-container{width:100% !important;max-width:1400px !important;margin:0 auto !important}
 .app-header{text-align:center !important}
 .tab-container{justify-content:center !important}
+@media (max-width:768px){
+.tab-container{justify-content:flex-start !important;overflow-x:auto !important;max-width:100% !important}
+.tab-container>button{flex-shrink:0 !important}
+}
 """
 
 RUN_FROM_JUPYTER_NOTEBOOKS = colab_check() or kaggle_check()
