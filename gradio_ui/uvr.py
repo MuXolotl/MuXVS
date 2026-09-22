@@ -14,7 +14,7 @@ import shutil
 import gradio as gr
 import torch
 from PolUVR.separator import Separator
-from UVR_resources import DEMUCS_v4_MODELS, FORMATS, MDX23C_MODELS, MDXNET_MODELS, ROFORMER_MODELS, VR_ARCH_MODELS
+from UVR_resources import FORMATS, MDX23C_MODELS, MDXNET_MODELS, ROFORMER_MODELS, VR_ARCH_MODELS, DEMUCS_v4_MODELS
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 USE_AUTOCAST = DEVICE == "cuda"

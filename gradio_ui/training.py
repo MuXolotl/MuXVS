@@ -278,24 +278,22 @@ def _train_model(
 def training_tab():
     model_name = gr.Textbox(label="Имя модели", placeholder="MyVoice")
 
-    with gr.Accordion("Подготовка данных", open=False):
-        with gr.Group():
+    with gr.Accordion("Подготовка данных", open=False), gr.Group(), gr.Row(equal_height=True):
+        with gr.Column(scale=1):
+            dataset_folder = gr.Textbox(label="Папка с датасетом", placeholder="/путь/к/аудио")
+            dataset_files = gr.File(label="…или загрузите файлы", file_count="multiple", height=260)
+        with gr.Column(scale=1):
             with gr.Row(equal_height=True):
-                with gr.Column(scale=1):
-                    dataset_folder = gr.Textbox(label="Папка с датасетом", placeholder="/путь/к/аудио")
-                    dataset_files = gr.File(label="…или загрузите файлы", file_count="multiple", height=260)
-                with gr.Column(scale=1):
-                    with gr.Row(equal_height=True):
-                        sample_rate = gr.Dropdown(SAMPLE_RATES, value=48000, label="Частота (Hz)")
-                        f0_method = gr.Dropdown(F0_METHODS, value="rmvpe", label="Метод F0")
-                        normalize = gr.Checkbox(value=True, label="Нормализация")
-                    with gr.Row(equal_height=True):
-                        segment_len = gr.Slider(minimum=1.0, maximum=10.0, step=0.1, value=3.0, label="Сегмент (сек)")
-                        include_mutes = gr.Slider(minimum=0, maximum=10, step=1, value=2, label="Мьют-файлов")
-                    with gr.Row(equal_height=True):
-                        slice_btn = gr.Button("1. Нарезать", variant="primary")
-                        extract_btn = gr.Button("2. Извлечь", variant="primary", interactive=False)
-                        index_btn = gr.Button("3. Построить индекс", interactive=False)
+                sample_rate = gr.Dropdown(SAMPLE_RATES, value=48000, label="Частота (Hz)")
+                f0_method = gr.Dropdown(F0_METHODS, value="rmvpe", label="Метод F0")
+                normalize = gr.Checkbox(value=True, label="Нормализация")
+            with gr.Row(equal_height=True):
+                segment_len = gr.Slider(minimum=1.0, maximum=10.0, step=0.1, value=3.0, label="Сегмент (сек)")
+                include_mutes = gr.Slider(minimum=0, maximum=10, step=1, value=2, label="Мьют-файлов")
+            with gr.Row(equal_height=True):
+                slice_btn = gr.Button("1. Нарезать", variant="primary")
+                extract_btn = gr.Button("2. Извлечь", variant="primary", interactive=False)
+                index_btn = gr.Button("3. Построить индекс", interactive=False)
 
     with gr.Group():
         _section_hint("checkpoint.pth", "tensorboard --logdir logs")
@@ -327,14 +325,13 @@ def training_tab():
     with gr.Group():
         log = gr.Textbox(label="Журнал", lines=12, max_lines=12)
         board_btn = gr.Button("📊 TensorBoard", variant="secondary")
-        with gr.Accordion("Параметры TensorBoard", open=False):
-            with gr.Row(equal_height=True):
-                board_port = gr.Number(value=DEFAULT_TENSORBOARD_PORT, label="Порт", precision=0)
-                board_base_url = gr.Textbox(
-                    label="Базовый адрес (за прокси)",
-                    placeholder="http://127.0.0.1:6006/tensorboard",
-                    info="Оставьте пустым при запуске на своём компьютере.",
-                )
+        with gr.Accordion("Параметры TensorBoard", open=False), gr.Row(equal_height=True):
+            board_port = gr.Number(value=DEFAULT_TENSORBOARD_PORT, label="Порт", precision=0)
+            board_base_url = gr.Textbox(
+                label="Базовый адрес (за прокси)",
+                placeholder="http://127.0.0.1:6006/tensorboard",
+                info="Оставьте пустым при запуске на своём компьютере.",
+            )
         board_frame = gr.HTML("")
 
     step_buttons = [slice_btn, extract_btn, index_btn]
@@ -370,7 +367,10 @@ def training_tab():
         outputs=log,
     )
     index_btn.click(_train_index, inputs=model_name, outputs=log).then(
-        _step_states, inputs=model_name, outputs=step_buttons, api_name=False
+        _step_states,
+        inputs=model_name,
+        outputs=step_buttons,
+        api_name=False,
     )
     board_btn.click(_open_board, inputs=[board_port, board_base_url], outputs=board_frame)
     stop_btn.click(request_stop, outputs=log, queue=False, api_name=False)
