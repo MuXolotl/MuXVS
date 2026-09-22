@@ -38,6 +38,7 @@ APP_CSS = """
 footer{display:none !important}
 .gradio-container{max-width:1400px !important}
 .app-header{text-align:center !important}
+.tab-container{justify-content:center !important}
 """
 
 RUN_FROM_JUPYTER_NOTEBOOKS = colab_check() or kaggle_check()
