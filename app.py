@@ -36,7 +36,7 @@ MAX_PORT_ATTEMPTS = 10
 
 APP_CSS = """
 footer{display:none !important}
-.gradio-container{max-width:1400px !important}
+.gradio-container{max-width:1400px !important;margin:0 auto !important}
 .app-header{text-align:center !important}
 .tab-container{justify-content:center !important}
 """
