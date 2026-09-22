@@ -33,21 +33,38 @@ def command(*args) -> list:
     return [sys.executable or "python", "-m", *[str(arg) for arg in args]]
 
 
+def _kill_process_tree(proc: subprocess.Popen, sig: int) -> None:
+    """Сигнал всей группе процесса (posix) или самому процессу (Windows)."""
+    try:
+        if os.name == "nt":
+            proc.send_signal(sig)
+        else:
+            os.killpg(os.getpgid(proc.pid), sig)
+    except (OSError, ProcessLookupError):
+        pass
+
+
 def request_stop() -> str:
     """Обработчик кнопки «Остановить». Вызывается с queue=False."""
     global _process, _stop_requested
     with _lock:
         _stop_requested = True
         proc = _process
-    if proc is not None and proc.poll() is None:
-        try:
-            if os.name == "nt":
-                proc.terminate()
-            else:
-                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-        except (OSError, ProcessLookupError):
-            pass
-    return "Останавливаю…"
+    if proc is None or proc.poll() is not None:
+        return "Нет запущенного процесса."
+    _kill_process_tree(proc, signal.SIGTERM)
+    try:
+        proc.wait(timeout=5)
+        return "Процесс остановлен."
+    except subprocess.TimeoutExpired:
+        pass
+    # Процесс пережил SIGTERM (зависший ввод-вывод, игнор сигнала) — добиваем.
+    _kill_process_tree(proc, signal.SIGKILL if os.name != "nt" else signal.SIGTERM)
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        return "Не удалось остановить процесс — убейте его вручную."
+    return "Процесс остановлен."
 
 
 def _spawn(cmd: list) -> subprocess.Popen:
