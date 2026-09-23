@@ -4,6 +4,7 @@
 Секции запускаются отдельными процессами с общим живым журналом.
 """
 
+import json
 import os
 import shutil
 
@@ -12,11 +13,12 @@ import gradio as gr
 from assets.env_paths import require_training_logs_dir, training_logs_dir
 from assets.model_installer import ensure_pretrains
 from assets.notebook_check import colab_check, kaggle_check
-from assets.pretrains import DEFAULT_PRETRAIN, NO_PRETRAIN, pretrain_choices
+from assets.pretrains import NO_PRETRAIN, default_pretrain, has_pretrains, pretrain_choices
 from gradio_ui.jobs import command, request_stop, run_job
 from gradio_ui.tensorboard import DEFAULT_TENSORBOARD_PORT, launch_tensorboard
 
 SAMPLE_RATES = [32000, 40000, 48000]
+DEFAULT_VOCODER = "HiFi-GAN"
 VOCODERS = ["HiFi-GAN", "MRF HiFi-GAN", "RefineGAN"]
 OPTIMIZERS = ["AdamW", "AdaBelief", "PolOpt"]
 F0_METHODS = ["rmvpe", "rmvpe+", "hpa-rmvpe"]
@@ -81,10 +83,23 @@ def _step_states(model_name):
     )
 
 
-def _refresh_pretrains(sample_rate, current):
-    """Список претрейнов под выбранную частоту; чужой выбор сбрасывается."""
-    choices = pretrain_choices(sample_rate)
-    return gr.update(choices=choices, value=current if current in choices else DEFAULT_PRETRAIN)
+def _pretrain_hint(vocoder) -> str:
+    """Подсказка под списком претрейнов: почему он пуст у этого вокодера."""
+    if has_pretrains(vocoder):
+        return "Встроенные наборы подходят только своему вокодеру. Частота без набора — «Без претрейна»."
+    return f"Для вокодера «{vocoder}» встроенных претрейнов нет: обучение пойдёт с нуля. Свои G/D — ниже."
+
+
+def _refresh_pretrains(vocoder, sample_rate, current):
+    """Список претрейнов под выбранные вокодер и частоту; чужой выбор сбрасывается.
+
+    Наборы привязаны к вокодеру, поэтому при смене вокодера в списке остаются
+    только совместимые наборы, а для вокодеров без встроенных претрейнов —
+    один пункт «Без претрейна».
+    """
+    choices = pretrain_choices(vocoder, sample_rate)
+    value = current if current in choices else default_pretrain(vocoder, sample_rate)
+    return gr.update(choices=choices, value=value, info=_pretrain_hint(vocoder))
 
 
 def _open_board(port, base_url):
@@ -178,7 +193,34 @@ def _train_index(model_name):
     )
 
 
-def _resolve_pretrains(pretrain, pretrain_g, pretrain_d, sample_rate, exp_dir):
+def _check_config(model_name: str, exp_dir: str, vocoder: str, sample_rate: int) -> None:
+    """Сверяет вокодер и частоту с уже созданной конфигурацией модели.
+
+    `data/config.json` пишется один раз при первом запуске обучения, поэтому
+    смена вокодера или частоты у существующей модели иначе прошла бы молча:
+    `rvc.training.train` берёт архитектуру и частоту именно из этого файла.
+    """
+    config_path = os.path.join(exp_dir, "data", "config.json")
+    if not os.path.isfile(config_path):
+        return
+    try:
+        with open(config_path, encoding="utf-8") as file:
+            config = json.load(file)
+    except (OSError, json.JSONDecodeError) as error:
+        raise gr.Error(f"Не удалось прочитать {config_path}: {error}") from error
+
+    saved_vocoder = config.get("model", {}).get("vocoder", DEFAULT_VOCODER)
+    saved_rate = int(config.get("data", {}).get("sample_rate", sample_rate))
+    if saved_vocoder == vocoder and saved_rate == sample_rate:
+        return
+    raise gr.Error(
+        f"Модель «{model_name}» уже настроена на вокодер «{saved_vocoder}» и {saved_rate} Hz. "
+        "Смена вокодера и частоты возможна только для новой модели: удалите "
+        f"{config_path} или возьмите другое имя.",
+    )
+
+
+def _resolve_pretrains(pretrain, pretrain_g, pretrain_d, vocoder, sample_rate, exp_dir):
     """Пути претрейнов G/D: свои файлы, встроенный набор или ничего.
 
     Генератор: отдаёт строки журнала, возвращает (путь G, путь D).
@@ -202,7 +244,7 @@ def _resolve_pretrains(pretrain, pretrain_g, pretrain_d, sample_rate, exp_dir):
         yield "• Без претрейна: потребуется больше эпох и данных."
         return None, None
     try:
-        return (yield from ensure_pretrains(pretrain, sample_rate))
+        return (yield from ensure_pretrains(vocoder, pretrain, sample_rate))
     except ValueError as error:
         raise gr.Error(str(error)) from error
 
@@ -241,6 +283,7 @@ def _train_model(
     exp_dir = _exp_dir(model_name)
     if not os.path.isfile(os.path.join(exp_dir, "data", "filelist.txt")):
         raise gr.Error("Нет filelist.txt — сначала выполните нарезку и извлечение признаков.")
+    _check_config(model_name, exp_dir, vocoder, int(sample_rate))
     cmd = command(
         "rvc.training.train",
         "--experiment_dir",
@@ -268,7 +311,7 @@ def _train_model(
     )
 
     notes, (resolved_g, resolved_d) = yield from _drain(
-        _resolve_pretrains(pretrain, pretrain_g, pretrain_d, int(sample_rate), exp_dir),
+        _resolve_pretrains(pretrain, pretrain_g, pretrain_d, vocoder, int(sample_rate), exp_dir),
     )
     if resolved_g and resolved_d:
         cmd += ["--pretrain_g", resolved_g, "--pretrain_d", resolved_d]
@@ -303,14 +346,20 @@ def training_tab():
             batch_size = gr.Slider(minimum=1, maximum=128, step=1, value=8, label="Батч")
         with gr.Accordion("Дополнительно", open=False):
             with gr.Row(equal_height=True):
-                vocoder = gr.Dropdown(VOCODERS, value="HiFi-GAN", label="Вокодер")
+                vocoder = gr.Dropdown(
+                    VOCODERS,
+                    value=DEFAULT_VOCODER,
+                    label="Вокодер",
+                    info="Встроенные претрейны есть только для HiFi-GAN.",
+                )
                 optimizer = gr.Dropdown(OPTIMIZERS, value="AdamW", label="Оптимизатор")
                 gpus = gr.Textbox("0", label="GPU")
             with gr.Row(equal_height=True):
                 pretrain = gr.Dropdown(
-                    pretrain_choices(48000),
-                    value=DEFAULT_PRETRAIN,
+                    pretrain_choices(DEFAULT_VOCODER, 48000),
+                    value=default_pretrain(DEFAULT_VOCODER, 48000),
                     label="Претрейн",
+                    info=_pretrain_hint(DEFAULT_VOCODER),
                     scale=1,
                 )
                 pretrain_g = gr.Textbox(label="Свой претрейн G", placeholder="Путь к .pth — вместо встроенного", scale=2)
@@ -336,7 +385,9 @@ def training_tab():
 
     step_buttons = [slice_btn, extract_btn, index_btn]
     model_name.change(_step_states, inputs=model_name, outputs=step_buttons, api_name=False)
-    sample_rate.change(_refresh_pretrains, inputs=[sample_rate, pretrain], outputs=pretrain, api_name=False)
+    # Список претрейнов зависит и от вокодера, и от частоты.
+    for trigger in (vocoder, sample_rate):
+        trigger.change(_refresh_pretrains, inputs=[vocoder, sample_rate, pretrain], outputs=pretrain, api_name=False)
     slice_btn.click(
         _slice_dataset,
         inputs=[model_name, dataset_files, dataset_folder, sample_rate, segment_len, normalize],
