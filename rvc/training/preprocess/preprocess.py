@@ -9,7 +9,7 @@ from scipy import signal
 from scipy.io import wavfile
 from tqdm import tqdm
 
-sys.path.append(os.getcwd())
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 from rvc._library.audio import load_audio
 from rvc.training.preprocess.slicer import Slicer
 

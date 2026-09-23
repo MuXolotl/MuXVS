@@ -11,10 +11,13 @@ PREDICTORS = "https://huggingface.co/Politrees/RVC_resources/resolve/main/predic
 EMBEDDERS = "https://huggingface.co/Politrees/RVC_resources/resolve/main/embedders/pytorch/"
 FLASH_SR = "https://huggingface.co/datasets/jakeoneijk/FlashSR_weights/resolve/main/"
 
-PREDICTORS_DIR = os.path.join(os.getcwd(), "assets", "models", "predictors")
-EMBEDDERS_DIR = os.path.join(os.getcwd(), "assets", "models", "embedders")
-FLASH_SR_DIR = os.path.join(os.getcwd(), "assets", "models", "FlashSR")
-PRETRAINS_DIR = os.path.join(os.getcwd(), "assets", "models", "pretrains")
+# Корень репозитория, а не текущий каталог: обучение идёт в подпроцессах с cwd = корень.
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+PREDICTORS_DIR = os.path.join(PROJECT_ROOT, "assets", "models", "predictors")
+EMBEDDERS_DIR = os.path.join(PROJECT_ROOT, "assets", "models", "embedders")
+FLASH_SR_DIR = os.path.join(PROJECT_ROOT, "assets", "models", "FlashSR")
+PRETRAINS_DIR = os.path.join(PROJECT_ROOT, "assets", "models", "pretrains")
 
 # Создаем папки, если их нет
 os.makedirs(PREDICTORS_DIR, exist_ok=True)

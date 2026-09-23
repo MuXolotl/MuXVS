@@ -7,8 +7,9 @@ import gradio as gr
 
 from rvc.inference.modules.download_source import download_file
 
-# Путь к директории, где будут храниться модели RVC
-rvc_models_dir = os.path.join(os.getcwd(), "models", "RVC_models")
+# Путь к директории, где будут храниться модели RVC (от корня репозитория)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+rvc_models_dir = os.path.join(PROJECT_ROOT, "models", "RVC_models")
 os.makedirs(rvc_models_dir, exist_ok=True)
 
 

@@ -13,6 +13,8 @@ import os
 
 from assets.notebook_check import colab_check, kaggle_check
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 COLAB_DRIVE_MOUNT = "/content/drive"
 COLAB_TRAINING_DIR = "/content/drive/MyDrive/MuXVS"
 KAGGLE_TRAINING_DIR = "/kaggle/working/Models"
@@ -24,7 +26,7 @@ def training_logs_dir() -> str:
         return COLAB_TRAINING_DIR
     if kaggle_check():
         return KAGGLE_TRAINING_DIR
-    return os.path.join(os.getcwd(), "logs")
+    return os.path.join(PROJECT_ROOT, "logs")
 
 
 def is_colab_drive_mounted() -> bool:

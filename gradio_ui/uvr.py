@@ -43,6 +43,15 @@ def _stem_results(results, output_dir):
     return outputs
 
 
+def _release_inference_cache() -> None:
+    """Выгружает кэш конвертации: разделение грузит свою модель на то же устройство."""
+    try:
+        from rvc.inference.infer import release_pipeline
+    except Exception:  # noqa: BLE001 — без torch/зависимостей выгружать нечего
+        return
+    release_pipeline()
+
+
 def _prepare_output_dir(input_file, output_directory):
     base_name = os.path.splitext(os.path.basename(input_file))[0]
     output_dir = os.path.join(output_directory, base_name)
@@ -182,6 +191,7 @@ def _separate(
 
     try:
         yield _reset_stems()
+        _release_inference_cache()
         out_dir = _prepare_output_dir(audio_path, output_dir)
         stem_names = {
             "All Stems": rename_template.replace("NAME", base_name).replace("STEM", "All Stems").replace("MODEL", model_key),
