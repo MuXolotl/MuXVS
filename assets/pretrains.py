@@ -46,6 +46,11 @@ PRETRAINS = {
         "40k": ("KLM/D_KLM_HFG_40k.pth", "KLM/G_KLM_HFG_40k.pth"),
         "48k": ("KLM/D_KLM_HFG_48k.pth", "KLM/G_KLM_HFG_48k.pth"),
     },
+    "KLM K-pop Universe": {
+        "32k": ("KLM/D_KLM_KpopUniverse_32k.pth", "KLM/G_KLM_KpopUniverse_32k.pth"),
+        "40k": ("KLM/D_KLM_KpopUniverse_40k.pth", "KLM/G_KLM_KpopUniverse_40k.pth"),
+        "48k": ("KLM/D_KLM_KpopUniverse_48k.pth", "KLM/G_KLM_KpopUniverse_48k.pth"),
+    },
     # Остальные претрейны (в алфовитном порядке)
     "Anime": {
         "32k": ("Anime/f0D_AnimePreTrain.pth", "Anime/f0G_AnimePreTrain.pth"),
