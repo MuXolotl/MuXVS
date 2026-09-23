@@ -13,7 +13,7 @@ import gradio as gr
 from assets.env_paths import require_training_logs_dir, training_logs_dir
 from assets.model_installer import ensure_pretrains
 from assets.notebook_check import colab_check, kaggle_check
-from assets.pretrains import NO_PRETRAIN, default_pretrain, has_pretrains, pretrain_choices
+from assets.pretrains import NO_PRETRAIN, default_pretrain, pretrain_choices
 from gradio_ui.jobs import command, request_stop, run_job
 from gradio_ui.tensorboard import DEFAULT_TENSORBOARD_PORT, launch_tensorboard
 
@@ -83,13 +83,6 @@ def _step_states(model_name):
     )
 
 
-def _pretrain_hint(vocoder) -> str:
-    """Подсказка под списком претрейнов: почему он пуст у этого вокодера."""
-    if has_pretrains(vocoder):
-        return "Встроенные наборы подходят только своему вокодеру. Частота без набора — «Без претрейна»."
-    return f"Для вокодера «{vocoder}» встроенных претрейнов нет: обучение пойдёт с нуля. Свои G/D — ниже."
-
-
 def _refresh_pretrains(vocoder, sample_rate, current):
     """Список претрейнов под выбранные вокодер и частоту; чужой выбор сбрасывается.
 
@@ -99,7 +92,7 @@ def _refresh_pretrains(vocoder, sample_rate, current):
     """
     choices = pretrain_choices(vocoder, sample_rate)
     value = current if current in choices else default_pretrain(vocoder, sample_rate)
-    return gr.update(choices=choices, value=value, info=_pretrain_hint(vocoder))
+    return gr.update(choices=choices, value=value)
 
 
 def _open_board(port, base_url):
@@ -346,12 +339,7 @@ def training_tab():
             batch_size = gr.Slider(minimum=1, maximum=128, step=1, value=8, label="Батч")
         with gr.Accordion("Дополнительно", open=False):
             with gr.Row(equal_height=True):
-                vocoder = gr.Dropdown(
-                    VOCODERS,
-                    value=DEFAULT_VOCODER,
-                    label="Вокодер",
-                    info="Встроенные претрейны есть только для HiFi-GAN.",
-                )
+                vocoder = gr.Dropdown(VOCODERS, value=DEFAULT_VOCODER, label="Вокодер")
                 optimizer = gr.Dropdown(OPTIMIZERS, value="AdamW", label="Оптимизатор")
                 gpus = gr.Textbox("0", label="GPU")
             with gr.Row(equal_height=True):
@@ -359,7 +347,6 @@ def training_tab():
                     pretrain_choices(DEFAULT_VOCODER, 48000),
                     value=default_pretrain(DEFAULT_VOCODER, 48000),
                     label="Претрейн",
-                    info=_pretrain_hint(DEFAULT_VOCODER),
                     scale=1,
                 )
                 pretrain_g = gr.Textbox(label="Свой претрейн G", placeholder="Путь к .pth — вместо встроенного", scale=2)
