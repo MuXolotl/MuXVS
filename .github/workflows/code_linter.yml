@@ -33,7 +33,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --no-cache-dir uv
-          uv pip install --no-cache-dir torch==2.11.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cpu -q --system
+          uv pip install --no-cache-dir torch==2.11 torchaudio==2.11 torchcodec==0.11 --index-url https://download.pytorch.org/whl/cpu -q --system
           uv pip install --no-cache-dir flake8 pylint vulture ruff -r requirements.txt -q --system
 
       # continue-on-error: накопленных замечаний слишком много для блокирующей проверки

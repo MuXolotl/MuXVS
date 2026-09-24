@@ -10,7 +10,6 @@ soundfile>=0.12.1
 soxr>=0.3.6
 torchfcpe
 torchcrepe
-torchcodec==0.16.0
 
 # === UVR ===
 PolUVR[gpu]==1.11.0; sys_platform == 'linux' or sys_platform == 'win32'

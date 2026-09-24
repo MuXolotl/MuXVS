@@ -90,10 +90,10 @@ if errorlevel 1 goto :error
 
 if /i "%TORCH_BACKEND%"=="cpu" (
     echo Устанавливаю PyTorch (CPU)...
-    "%ENV_DIR%\python.exe" -m pip install torch==2.11.0 torchaudio==2.11.0
+    "%ENV_DIR%\python.exe" -m pip install torch==2.11 torchaudio==2.11 torchcodec==0.11
 ) else (
     echo Устанавливаю PyTorch (CUDA)...
-    "%ENV_DIR%\python.exe" -m pip install torch==2.11.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cu128
+    "%ENV_DIR%\python.exe" -m pip install torch==2.11 torchaudio==2.11 torchcodec==0.11 --index-url https://download.pytorch.org/whl/cu128
 )
 if errorlevel 1 goto :error
 

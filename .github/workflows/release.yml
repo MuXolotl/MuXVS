@@ -167,7 +167,7 @@ jobs:
           conda activate ./env
           pip install uv
           uv pip install --upgrade setuptools
-          uv pip install torch==2.11.0 torchaudio==2.11.0 \
+          uv pip install torch==2.11 torchaudio==2.11 torchcodec==0.11 \
             --index-url https://download.pytorch.org/whl/cu128
           uv pip install -r requirements.txt
 
@@ -291,7 +291,7 @@ jobs:
           conda activate ./env
           pip install uv
           uv pip install --upgrade setuptools
-          uv pip install torch==2.11.0 torchaudio==2.11.0 \
+          uv pip install torch==2.11 torchaudio==2.11 torchcodec==0.11 \
             --index-url https://download.pytorch.org/whl/cpu
           uv pip install -r requirements.txt
 
@@ -421,7 +421,7 @@ jobs:
           conda activate ./env
           pip install uv
           uv pip install --upgrade setuptools
-          uv pip install torch==2.11.0 torchaudio==2.11.0 \
+          uv pip install torch==2.11 torchaudio==2.11 torchcodec==0.11 \
             --index-url https://download.pytorch.org/whl/cu128
           uv pip install -r requirements.txt
 
@@ -537,7 +537,7 @@ jobs:
           conda activate ./env
           pip install uv
           uv pip install --upgrade setuptools
-          uv pip install torch==2.11.0 torchaudio==2.11.0 \
+          uv pip install torch==2.11 torchaudio==2.11 torchcodec==0.11 \
             --index-url https://download.pytorch.org/whl/cpu
           uv pip install -r requirements.txt
 
@@ -647,7 +647,7 @@ jobs:
           conda activate ./env
           pip install uv
           uv pip install --upgrade setuptools
-          uv pip install torch==2.11.0 torchaudio==2.11.0
+          uv pip install torch==2.11 torchaudio==2.11 torchcodec==0.11
           uv pip install -r requirements.txt
 
       - name: Install FFmpeg
