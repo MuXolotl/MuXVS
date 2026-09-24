@@ -5,6 +5,8 @@ import traceback
 import warnings
 from typing import Any
 
+import torch
+
 # Configuring the environment and logging
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # Disable unnecessary TensorFlow logs
 os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"  # Disabling Gradio analytics
@@ -101,12 +103,13 @@ with gr.Blocks(
 
     with gr.Tab("Конвертация") as conversion_tab_ui:
         conversion_tab(include_tts=not is_offline_mode())
-    # Модель могли загрузить или удалить мимо интерфейса — список обновляем
-    # при каждом открытии вкладки, а не только кнопкой во вкладке «Модели».
+    # список обновляем при каждом открытии вкладки, а не только кнопкой.
     conversion_tab_ui.select(refresh_models, outputs=model_dropdowns(), api_name=False)
 
-    with gr.Tab("Обучение"):
-        training_tab()
+    # Обучение только на CUDA
+    if torch.cuda.is_available():
+        with gr.Tab("Обучение"):
+            training_tab()
 
     with gr.Tab(uvr_title):
         if uvr_ui is not None:
