@@ -106,7 +106,7 @@ with gr.Blocks(
     # список обновляем при каждом открытии вкладки, а не только кнопкой.
     conversion_tab_ui.select(refresh_models, outputs=model_dropdowns(), api_name=False)
 
-    # Обучение только на CUDA
+    # Обучение только при наличии CUDA
     if torch.cuda.is_available():
         with gr.Tab("Обучение"):
             training_tab()
