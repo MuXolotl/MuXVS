@@ -61,9 +61,6 @@ PRETRAINS = {
         "Anime": {
             "32k": ("Anime/f0D_AnimePreTrain.pth", "Anime/f0G_AnimePreTrain.pth"),
         },
-        "Aurora": {
-            "48k": ("Aurora/D_Aurora_v2.pth", "Aurora/G_Aurora_v2.pth"),
-        },
         "DMR v1": {
             "32k": ("DMR/D_DMR-V1.pth", "DMR/G_DMR-V1.pth"),
         },
@@ -120,10 +117,12 @@ PRETRAINS = {
             "48k": ("VocalCore/D_VocalCoreTry3b.pth", "VocalCore/G_VocalCoreTry3b.pth"),
         },
     },
-    # Встроенных наборов для этих вокодеров в репозитории пока нет:
-    # обучение идёт с нуля или со своих G/D, совместимых с выбранным вокодером.
     "MRF HiFi-GAN": {},
-    "RefineGAN": {},
+    "RefineGAN": {
+        "Aurora": {
+            "48k": ("Aurora/D_Aurora_v2.pth", "Aurora/G_Aurora_v2.pth"),
+        },
+    },
 }
 
 
