@@ -58,6 +58,9 @@ PRETRAINS = {
             "48k": ("KLM/D_KLM_KpopUniverse_48k.pth", "KLM/G_KLM_KpopUniverse_48k.pth"),
         },
         # Остальные претрейны (в алфовитном порядке)
+        "Aurora": {
+            "48k": ("Aurora/D_Aurora_v2.pth", "Aurora/G_Aurora_v2.pth"),
+        },
         "Anime": {
             "32k": ("Anime/f0D_AnimePreTrain.pth", "Anime/f0G_AnimePreTrain.pth"),
         },
@@ -118,11 +121,7 @@ PRETRAINS = {
         },
     },
     "MRF HiFi-GAN": {},
-    "RefineGAN": {
-        "Aurora": {
-            "48k": ("Aurora/D_Aurora_v2.pth", "Aurora/G_Aurora_v2.pth"),
-        },
-    },
+    "RefineGAN": {},
 }
 
 
