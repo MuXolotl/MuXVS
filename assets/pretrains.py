@@ -61,6 +61,9 @@ PRETRAINS = {
         "Anime": {
             "32k": ("Anime/f0D_AnimePreTrain.pth", "Anime/f0G_AnimePreTrain.pth"),
         },
+        "Aurora": {
+            "48k": ("Aurora/D_Aurora_v2.pth", "Aurora/G_Aurora_v2.pth"),
+        },
         "DMR v1": {
             "32k": ("DMR/D_DMR-V1.pth", "DMR/G_DMR-V1.pth"),
         },
@@ -118,11 +121,7 @@ PRETRAINS = {
         },
     },
     "MRF HiFi-GAN": {},
-    "RefineGAN": {
-        "Aurora": {
-            "48k": ("Aurora/D_Aurora_v2.pth", "Aurora/G_Aurora_v2.pth"),
-        },
-    },
+    "RefineGAN": {},
 }
 
 
