@@ -817,7 +817,7 @@ jobs:
           
           📚 **Документация**: [README](https://github.com/MuXolotl/MuXVS#readme)
           🐛 **Сообщить о проблеме**: [Issues](https://github.com/MuXolotl/MuXVS/issues)
-          💬 **Telegram**: [Канал](https://t.me/pol1trees) | [Чат](https://t.me/+GMTP7hZqY0E4OGRi)
+          💬 **Telegram**: [Канал](https://t.me/politrees) | [Чат](https://t.me/+GMTP7hZqY0E4OGRi)
           NOTES_EOF
 
       - name: Create GitHub Release
