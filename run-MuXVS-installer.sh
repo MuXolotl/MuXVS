@@ -85,6 +85,10 @@ install_dependencies() {
         echo "Устанавливаю PyTorch (CUDA, cu128)..."
         "$env_python" -m pip install torch==2.11 torchaudio==2.11 torchcodec==0.11 \
             --index-url https://download.pytorch.org/whl/cu128
+    elif [ "$OS_NAME" = "Linux" ]; then
+        echo "Устанавливаю PyTorch (CPU)..."
+        "$env_python" -m pip install torch==2.11 torchaudio==2.11 torchcodec==0.11 \
+            --index-url https://download.pytorch.org/whl/cpu
     else
         echo "Устанавливаю PyTorch (CPU/MPS)..."
         "$env_python" -m pip install torch==2.11 torchaudio==2.11 torchcodec==0.11

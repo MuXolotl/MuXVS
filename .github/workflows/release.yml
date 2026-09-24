@@ -165,10 +165,12 @@ jobs:
         run: |
           conda create -y -p ./env python=${{ env.PYTHON_VERSION }}
           conda activate ./env
+          unset SSL_CERT_FILE REQUESTS_CA_BUNDLE
           pip install uv
           uv pip install --upgrade setuptools
-          uv pip install torch==2.11 torchaudio==2.11 torchcodec==0.11 \
+          uv pip install torch==2.11 torchaudio==2.11 \
             --index-url https://download.pytorch.org/whl/cu128
+          uv pip install torchcodec==0.11
           uv pip install -r requirements.txt
 
       - name: Download FFmpeg
@@ -289,10 +291,12 @@ jobs:
         run: |
           conda create -y -p ./env python=${{ env.PYTHON_VERSION }}
           conda activate ./env
+          unset SSL_CERT_FILE REQUESTS_CA_BUNDLE
           pip install uv
           uv pip install --upgrade setuptools
-          uv pip install torch==2.11 torchaudio==2.11 torchcodec==0.11 \
+          uv pip install torch==2.11 torchaudio==2.11 \
             --index-url https://download.pytorch.org/whl/cpu
+          uv pip install torchcodec==0.11
           uv pip install -r requirements.txt
 
       - name: Download FFmpeg
