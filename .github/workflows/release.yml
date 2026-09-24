@@ -10,10 +10,6 @@ on:
         description: 'Version to release (e.g., 1.4.0, 1.4.0-beta.1)'
         required: true
         type: string
-      hf_repo:
-        description: 'HuggingFace repo for builds (owner/name)'
-        type: string
-        default: 'MuXolotl/MuXVS'
       build_windows:
         description: 'Build Windows (CUDA)'
         type: boolean
@@ -35,14 +31,17 @@ on:
         type: boolean
         default: true
 
+concurrency:
+  group: release-${{ github.ref }}-${{ github.event.inputs.version || github.sha }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
   actions: read
 
 env:
   PYTHON_VERSION: '3.11'
-  # репозиторий HuggingFace для сборок, переопределяется параметром hf_repo
-  HF_REPO: ${{ github.event.inputs.hf_repo || 'MuXolotl/MuXVS' }}
+  HF_REPO: 'Politrees/MuXVS'
 
 jobs:
   # ═══════════════════════════════════════════════════════════════
@@ -168,7 +167,7 @@ jobs:
           conda activate ./env
           pip install uv
           uv pip install --upgrade setuptools
-          uv pip install torch==2.7.1 torchaudio==2.7.1 torchvision==0.22.1 \
+          uv pip install torch==2.11.0 torchaudio==2.11.0 \
             --index-url https://download.pytorch.org/whl/cu128
           uv pip install -r requirements.txt
 
@@ -258,7 +257,7 @@ jobs:
                   repo_id=repo_id,
                   repo_type="model",
                   token=token,
-                  commit_message=f"Upload MuXVS v{version} for Windows (CUDA)"
+                  commit_message=f"Upload MuXVS v{version} for Windows (CUDA)",
               )
               print("Done!")
           EOF
@@ -292,7 +291,7 @@ jobs:
           conda activate ./env
           pip install uv
           uv pip install --upgrade setuptools
-          uv pip install torch==2.7.1 torchaudio==2.7.1 torchvision==0.22.1 \
+          uv pip install torch==2.11.0 torchaudio==2.11.0 \
             --index-url https://download.pytorch.org/whl/cpu
           uv pip install -r requirements.txt
 
@@ -382,7 +381,7 @@ jobs:
                   repo_id=repo_id,
                   repo_type="model",
                   token=token,
-                  commit_message=f"Upload MuXVS v{version} for Windows (CPU)"
+                  commit_message=f"Upload MuXVS v{version} for Windows (CPU)",
               )
               print("Done!")
           EOF
@@ -422,7 +421,7 @@ jobs:
           conda activate ./env
           pip install uv
           uv pip install --upgrade setuptools
-          uv pip install torch==2.7.1 torchaudio==2.7.1 torchvision==0.22.1 \
+          uv pip install torch==2.11.0 torchaudio==2.11.0 \
             --index-url https://download.pytorch.org/whl/cu128
           uv pip install -r requirements.txt
 
@@ -498,7 +497,7 @@ jobs:
                   repo_id=repo_id,
                   repo_type="model",
                   token=token,
-                  commit_message=f"Upload MuXVS v{version} for Linux (CUDA)"
+                  commit_message=f"Upload MuXVS v{version} for Linux (CUDA)",
               )
               print("Done!")
           EOF
@@ -538,7 +537,7 @@ jobs:
           conda activate ./env
           pip install uv
           uv pip install --upgrade setuptools
-          uv pip install torch==2.7.1 torchaudio==2.7.1 torchvision==0.22.1 \
+          uv pip install torch==2.11.0 torchaudio==2.11.0 \
             --index-url https://download.pytorch.org/whl/cpu
           uv pip install -r requirements.txt
 
@@ -614,7 +613,7 @@ jobs:
                   repo_id=repo_id,
                   repo_type="model",
                   token=token,
-                  commit_message=f"Upload MuXVS v{version} for Linux (CPU)"
+                  commit_message=f"Upload MuXVS v{version} for Linux (CPU)",
               )
               print("Done!")
           EOF
@@ -648,7 +647,7 @@ jobs:
           conda activate ./env
           pip install uv
           uv pip install --upgrade setuptools
-          uv pip install torch==2.7.1 torchaudio==2.7.1 torchvision==0.22.1
+          uv pip install torch==2.11.0 torchaudio==2.11.0
           uv pip install -r requirements.txt
 
       - name: Install FFmpeg
@@ -720,7 +719,7 @@ jobs:
                   repo_id=repo_id,
                   repo_type="model",
                   token=token,
-                  commit_message=f"Upload MuXVS v{version} for MacOS"
+                  commit_message=f"Upload MuXVS v{version} for MacOS",
               )
               print("Done!")
           EOF

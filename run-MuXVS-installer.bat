@@ -9,16 +9,22 @@ echo  MuXVS Installer
 echo =============================================
 echo.
 
+set "PYTHON_VERSION=3.11"
 set "PRINCIPAL=%cd%"
 set "MINICONDA_DIR=%UserProfile%\Miniconda3"
 set "ENV_DIR=%PRINCIPAL%\env"
-set "MINICONDA_URL=https://repo.anaconda.com/miniconda/Miniconda3-py311_25.1.1-2-Windows-x86_64.exe"
+set "MINICONDA_URL=https://repo.anaconda.com/miniconda/Miniconda3-py311_26.7.1-1-Windows-x86_64.exe"
 
 call :install_miniconda
+if errorlevel 1 goto :error
 call :create_conda_env
+if errorlevel 1 goto :error
 call :install_dependencies
+if errorlevel 1 goto :error
 call :download_ffmpeg
+if errorlevel 1 goto :error
 call :verify_installation
+if errorlevel 1 goto :error
 
 cls
 echo.
@@ -48,28 +54,52 @@ exit /b 0
 
 :create_conda_env
 cls
-echo Создаю Python-окружение (python=3.11)...
-call "%MINICONDA_DIR%\_conda.exe" create --no-shortcuts -y -k --prefix "%ENV_DIR%" python=3.11
+set "FORCE_CREATE="
+if exist "%ENV_DIR%\python.exe" (
+    for /f %%v in ('"%ENV_DIR%\python.exe" -c "import sys;print(f'{sys.version_info[0]}.{sys.version_info[1]}')"') do set "ENV_PY=%%v"
+    if "!ENV_PY!"=="%PYTHON_VERSION%" (
+        echo Окружение с Python %PYTHON_VERSION% уже существует - пропускаю.
+        echo.
+        exit /b 0
+    )
+    echo Окружение создано для Python !ENV_PY! - пересоздаю под Python %PYTHON_VERSION%...
+    echo.
+    set "FORCE_CREATE=--force"
+)
+
+echo Создаю Python-окружение (python=%PYTHON_VERSION%)...
+call "%MINICONDA_DIR%\_conda.exe" create --no-shortcuts -y -k --prefix "%ENV_DIR%" python=%PYTHON_VERSION% !FORCE_CREATE!
 if errorlevel 1 goto :error
 echo Окружение создано.
-echo.
-
-echo Устанавливаю uv...
-"%ENV_DIR%\python.exe" -m pip install uv
-if errorlevel 1 goto :error
-echo uv установлен.
 echo.
 exit /b 0
 
 :install_dependencies
 cls
 echo Устанавливаю зависимости (это может занять какое-то время)...
-"%ENV_DIR%\Scripts\uv.exe" pip install --python "%ENV_DIR%\python.exe" --upgrade setuptools
+
+set "TORCH_BACKEND=cpu"
+set "NVIDIA_GPUS=0"
+for /f %%g in ('powershell -NoProfile -Command "(Get-CimInstance Win32_VideoController ^| Where-Object { $_.Name -match 'NVIDIA' } ^| Measure-Object).Count"') do set "NVIDIA_GPUS=%%g"
+if not "!NVIDIA_GPUS!"=="0" set "TORCH_BACKEND=cu128"
+
+echo  PyTorch: %TORCH_BACKEND%
+
+"%ENV_DIR%\python.exe" -m pip install --upgrade pip setuptools
 if errorlevel 1 goto :error
-"%ENV_DIR%\Scripts\uv.exe" pip install --python "%ENV_DIR%\python.exe" torch==2.7.1 torchaudio==2.7.1 --upgrade --index-url https://download.pytorch.org/whl/cu128
+
+if /i "%TORCH_BACKEND%"=="cpu" (
+    echo Устанавливаю PyTorch (CPU)...
+    "%ENV_DIR%\python.exe" -m pip install torch==2.11.0 torchaudio==2.11.0
+) else (
+    echo Устанавливаю PyTorch (CUDA)...
+    "%ENV_DIR%\python.exe" -m pip install torch==2.11.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cu128
+)
 if errorlevel 1 goto :error
-"%ENV_DIR%\Scripts\uv.exe" pip install --python "%ENV_DIR%\python.exe" -r "%PRINCIPAL%\requirements.txt"
+
+"%ENV_DIR%\python.exe" -m pip install -r "%PRINCIPAL%\requirements.txt"
 if errorlevel 1 goto :error
+
 echo Зависимости установлены.
 echo.
 exit /b 0
@@ -107,9 +137,12 @@ echo.
 if %errorlevel% equ 0 (
     echo CUDA доступна - преобразование голоса будет работать на GPU.
 ) else (
-    echo ВНИМАНИЕ: CUDA недоступна.
-    echo   Если у вас видеокарта NVIDIA, обновите драйвер с https://www.nvidia.com
-    echo   В противном случае программа будет работать на CPU (значительно медленнее).
+    if /i not "%TORCH_BACKEND%"=="cpu" (
+        echo ВНИМАНИЕ: CUDA недоступна, хотя видеокарта NVIDIA обнаружена.
+        echo   Обновите драйвер с https://www.nvidia.com
+    ) else (
+        echo Программа будет работать на CPU (значительно медленнее).
+    )
 )
 echo.
 exit /b 0

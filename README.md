@@ -14,9 +14,13 @@
 ## Запуск
 
 ```bash
-./run-MuXVS-installer.sh   # один раз: окружение и зависимости
-./run-MuXVS.sh             # интерфейс (сам выберет online/offline режим)
+./run-MuXVS-installer.sh      # один раз: окружение и зависимости
+./run-MuXVS.sh                # интерфейс (сам выберет online/offline режим)
 ```
+
+Windows: `run-MuXVS-installer.bat`, затем `run-MuXVS.bat`.
+
+Установщик всё делает сам: Python и GPU/CPU выбираются автоматически, параметры не нужны.
 
 Вручную: `python app.py [--port 4000] [--server-name 127.0.0.1] [--offline]`.
 
@@ -28,3 +32,6 @@
 python -m rvc.inference.infer_cli rvc --rvc_model MyModel --input_path in.wav
 python -m rvc.inference.infer_cli tts --rvc_model MyModel --tts_voice ru-RU-SvetlanaNeural --tts_text "Привет"
 ```
+
+> **Python:** дистрибутивы собираются с Python **3.11**; CI дополнительно тестирует код на 3.10–3.13.
+> Готовые сборки публикуются в HuggingFace-репозитории [Politrees/MuXVS](https://huggingface.co/Politrees/MuXVS).

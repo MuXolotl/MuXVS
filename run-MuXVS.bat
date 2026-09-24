@@ -16,7 +16,7 @@ set PYTHON=env\python.exe
 set SCRIPT=app.py
 
 call :check_internet_connection
-call :running_interface
+call :running_interface %*
 exit /b 0
 
 :check_internet_connection
@@ -44,10 +44,10 @@ if not exist %SCRIPT% (
 
 if "%INTERNET_AVAILABLE%"=="0" (
     echo Запуск в ОФФЛАЙН-режиме...
-    %PYTHON% %SCRIPT% --offline
+    %PYTHON% %SCRIPT% --offline %*
 ) else (
     echo Запуск в ОНЛАЙН-режиме...
-    %PYTHON% %SCRIPT%
+    %PYTHON% %SCRIPT% %*
 )
 
 if errorlevel 1 (
