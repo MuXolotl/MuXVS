@@ -16,7 +16,9 @@ import soundfile as sf
 import torch
 from tqdm import tqdm
 
-sys.path.append(os.getcwd())
+# Корень репозитория: скрипт может запускаться из любого каталога
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(PROJECT_ROOT)
 from rvc._library.audio import load_audio
 from rvc._library.embedders.fairseq import load_model
 from rvc._library.predictors.f0 import RMVPEF0
@@ -48,7 +50,7 @@ class DataPreprocessor:
 
     def _load_hubert_model(self):
         """Загрузка модели HuBERT"""
-        hubert_model_path = os.path.join(os.getcwd(), "assets", "models", "embedders", "contentvec_base.pt")
+        hubert_model_path = os.path.join(PROJECT_ROOT, "assets", "models", "embedders", "contentvec_base.pt")
         return load_model(hubert_model_path).to(self.device).eval()
 
     def _read_16k(self, path):
@@ -156,7 +158,7 @@ class DataPreprocessor:
 
 
 def generate_filelist(model_path: str, sample_rate: int, include_mutes: int = 2):
-    mute_base_path = os.path.join(os.getcwd(), "rvc", "training", "mute")
+    mute_base_path = os.path.join(PROJECT_ROOT, "rvc", "training", "mute")
 
     gt_wavs_dir = os.path.join(model_path, "data", "sliced_audios")
     feature_dir = os.path.join(model_path, "data", "features")

@@ -1,6 +1,7 @@
 import asyncio
 import gc
 import os
+import threading
 
 import edge_tts
 import gradio as gr
@@ -13,10 +14,13 @@ from rvc._library.embedders.fairseq import load_model
 from rvc.inference.modules.audio_upscaler import upscale
 from rvc.inference.pipeline import VC
 
-# Определяем пути к папкам и файлам (константы)
-RVC_MODELS_DIR = os.path.join(os.getcwd(), "models", "RVC_models")
-OUTPUT_DIR = os.path.join(os.getcwd(), "output", "RVC_output")
-EMBEDDER_PATH = os.path.join(os.getcwd(), "assets", "models", "embedders", "contentvec_base.pt")
+# Определяем пути к папкам и файлам (константы).
+# Корень репозитория, а не текущий каталог: обучение запускается отдельными
+# процессами с cwd = корень проекта, поэтому папки должны совпадать.
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+RVC_MODELS_DIR = os.path.join(PROJECT_ROOT, "models", "RVC_models")
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output", "RVC_output")
+EMBEDDER_PATH = os.path.join(PROJECT_ROOT, "assets", "models", "embedders", "contentvec_base.pt")
 
 AUDIO_EXTENSIONS = {".wav", ".flac", ".mp3", ".ogg", ".m4a", ".aac", ".opus", ".wma", ".aiff"}
 
@@ -132,12 +136,79 @@ def load_pipeline(rvc_model):
     }
 
 
-# Выгружает пайплайн из памяти
-def free_pipeline(pipe):
-    pipe.clear()
+# Кэш последнего пайплайна: повторные запуски той же модели не перезагружают
+# эмбеддер и веса. Хранится один пайплайн — при смене модели предыдущий выгружается.
+_pipeline_cache = {"name": None, "pipe": None, "stamp": None}
+_pipeline_lock = threading.Lock()
+
+
+def _file_stamp(path):
+    """Отпечаток файла модели: перезапись .pth должна сбрасывать кэш."""
+    try:
+        info = os.stat(path)
+    except OSError:
+        return None
+    return (info.st_mtime_ns, info.st_size)
+
+
+def _free_memory():
+    """Отпускает ссылки сборщику мусора и чистит кэш CUDA."""
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
+
+
+# Выгружает пайплайн из памяти (когда он больше никому не нужен)
+def free_pipeline(pipe):
+    if pipe is not None:
+        pipe.clear()
+    _free_memory()
+
+
+def _forget_pipeline(pipe):
+    """Забывает пайплайн, не трогая его словарь: им может пользоваться другой запрос."""
+    if pipe is not None:
+        del pipe
+    _free_memory()
+
+
+def get_pipeline(rvc_model):
+    """Пайплайн модели: готовый из памяти, если она не менялась, иначе с диска."""
+    # Листинг папки вместо полной загрузки: файлы модели могли заменить на диске.
+    model_path, index_path = load_rvc_model(rvc_model)
+    stamp = _file_stamp(model_path)
+    with _pipeline_lock:
+        cached = _pipeline_cache
+        if cached["name"] == rvc_model and cached["pipe"] is not None and cached["stamp"] == stamp:
+            # Индекс читается из файла на каждом запуске (pipeline.py) — обновляем путь,
+            # чтобы появившийся позже .index подхватился без перезагрузки модели.
+            cached["pipe"]["index_path"] = index_path
+            display_progress(0.3, f"[⚡] Модель '{rvc_model}' уже загружена", True)
+            return cached["pipe"]
+        previous = cached["pipe"]
+        pipe = load_pipeline(rvc_model)
+        cached["name"] = rvc_model
+        cached["pipe"] = pipe
+        cached["stamp"] = stamp
+    _forget_pipeline(previous)
+    return pipe
+
+
+def release_pipeline():
+    """Выгружает кэш инференса; нужна перед обучением, UVR и апскейлом.
+
+    Возвращает имя выгруженной модели или None, если память уже свободна.
+    """
+    with _pipeline_lock:
+        name = _pipeline_cache["name"]
+        pipe = _pipeline_cache["pipe"]
+        _pipeline_cache["name"] = None
+        _pipeline_cache["pipe"] = None
+        _pipeline_cache["stamp"] = None
+    if pipe is None:
+        return None
+    _forget_pipeline(pipe)
+    return name
 
 
 # Конвертирует один файл уже загруженным пайплайном
@@ -219,36 +290,33 @@ def rvc_infer(
         raise FileNotFoundError(f"Файл '{input_path}' не найден!")
 
     display_progress(0, "\n[⚙️] Запуск конвейера генерации...", True)
-    pipe = load_pipeline(rvc_model)
-    try:
-        output_path = build_output_path(input_path, OUTPUT_DIR, rvc_model, output_format)
-        convert_one(
-            pipe,
-            input_path,
-            output_path,
-            f0_method=f0_method,
-            f0_min=f0_min,
-            f0_max=f0_max,
-            rvc_pitch=rvc_pitch,
-            protect=protect,
-            index_rate=index_rate,
-            volume_envelope=volume_envelope,
-            autopitch=autopitch,
-            autopitch_threshold=autopitch_threshold,
-            autotune=autotune,
-            autotune_tonic=autotune_tonic,
-            autotune_scale=autotune_scale,
-            autotune_strength=autotune_strength,
-            stereo_sound=stereo_sound,
-            output_format=output_format,
-        )
+    # Пайплайн остаётся в памяти: следующий запуск этой же модели стартует сразу.
+    pipe = get_pipeline(rvc_model)
+    output_path = build_output_path(input_path, OUTPUT_DIR, rvc_model, output_format)
+    convert_one(
+        pipe,
+        input_path,
+        output_path,
+        f0_method=f0_method,
+        f0_min=f0_min,
+        f0_max=f0_max,
+        rvc_pitch=rvc_pitch,
+        protect=protect,
+        index_rate=index_rate,
+        volume_envelope=volume_envelope,
+        autopitch=autopitch,
+        autopitch_threshold=autopitch_threshold,
+        autotune=autotune,
+        autotune_tonic=autotune_tonic,
+        autotune_scale=autotune_scale,
+        autotune_strength=autotune_strength,
+        stereo_sound=stereo_sound,
+        output_format=output_format,
+    )
 
-        if audio_upscaling:
-            display_progress(0.9, "[🚀] Улучшаем качество аудио...", True)
-            upscale(output_path, OUTPUT_DIR, 2, config.device)
-    finally:
-        display_progress(0.95, "Освобождаем память...", False)
-        free_pipeline(pipe)
+    if audio_upscaling:
+        display_progress(0.9, "[🚀] Улучшаем качество аудио...", True)
+        upscale(output_path, OUTPUT_DIR, 2, config.device)
 
     display_progress(1.0, f"[✅] Преобразование завершено — {output_path}", True)
     return gr.Audio(output_path, label=os.path.basename(output_path))
@@ -307,40 +375,37 @@ def rvc_batch_infer(
     os.makedirs(target_dir, exist_ok=True)
 
     print(f"\n[⚙️] Пакетная конвертация: {len(inputs)} файл(ов), модель '{rvc_model}'")
-    pipe = load_pipeline(rvc_model)
+    pipe = get_pipeline(rvc_model)
     done, failed = [], []
-    try:
-        for num, input_path in enumerate(inputs, 1):
-            progress(num / len(inputs), desc=f"[{num}/{len(inputs)}] {os.path.basename(input_path)}")
-            try:
-                output_path = build_output_path(input_path, target_dir, rvc_model, output_format)
-                convert_one(
-                    pipe,
-                    input_path,
-                    output_path,
-                    f0_method=f0_method,
-                    f0_min=f0_min,
-                    f0_max=f0_max,
-                    rvc_pitch=rvc_pitch,
-                    protect=protect,
-                    index_rate=index_rate,
-                    volume_envelope=volume_envelope,
-                    autopitch=autopitch,
-                    autopitch_threshold=autopitch_threshold,
-                    autotune=autotune,
-                    autotune_tonic=autotune_tonic,
-                    autotune_scale=autotune_scale,
-                    autotune_strength=autotune_strength,
-                    stereo_sound=stereo_sound,
-                    output_format=output_format,
-                )
-                if audio_upscaling:
-                    upscale(output_path, target_dir, 2, config.device)
-                done.append(output_path)
-            except Exception as error:
-                failed.append(f"{os.path.basename(input_path)}: {error}")
-    finally:
-        free_pipeline(pipe)
+    for num, input_path in enumerate(inputs, 1):
+        progress(num / len(inputs), desc=f"[{num}/{len(inputs)}] {os.path.basename(input_path)}")
+        try:
+            output_path = build_output_path(input_path, target_dir, rvc_model, output_format)
+            convert_one(
+                pipe,
+                input_path,
+                output_path,
+                f0_method=f0_method,
+                f0_min=f0_min,
+                f0_max=f0_max,
+                rvc_pitch=rvc_pitch,
+                protect=protect,
+                index_rate=index_rate,
+                volume_envelope=volume_envelope,
+                autopitch=autopitch,
+                autopitch_threshold=autopitch_threshold,
+                autotune=autotune,
+                autotune_tonic=autotune_tonic,
+                autotune_scale=autotune_scale,
+                autotune_strength=autotune_strength,
+                stereo_sound=stereo_sound,
+                output_format=output_format,
+            )
+            if audio_upscaling:
+                upscale(output_path, target_dir, 2, config.device)
+            done.append(output_path)
+        except Exception as error:
+            failed.append(f"{os.path.basename(input_path)}: {error}")
 
     lines = [f"Готово: {len(done)}/{len(inputs)}. Папка: {target_dir}"]
     lines.extend(f"✓ {os.path.basename(path)}" for path in done)

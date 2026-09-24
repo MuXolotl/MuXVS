@@ -5,16 +5,19 @@ import requests
 from tqdm import tqdm
 
 from assets.pretrains import BASE_URL as PRETRAINS_BASE_URL
-from assets.pretrains import PRETRAINS, pretrain_files, pretrain_rates, rate_label
+from assets.pretrains import NO_PRETRAIN, has_pretrains, pretrain_files, pretrain_rates, pretrain_sets, rate_label
 
 PREDICTORS = "https://huggingface.co/Politrees/RVC_resources/resolve/main/predictors/"
 EMBEDDERS = "https://huggingface.co/Politrees/RVC_resources/resolve/main/embedders/pytorch/"
 FLASH_SR = "https://huggingface.co/datasets/jakeoneijk/FlashSR_weights/resolve/main/"
 
-PREDICTORS_DIR = os.path.join(os.getcwd(), "assets", "models", "predictors")
-EMBEDDERS_DIR = os.path.join(os.getcwd(), "assets", "models", "embedders")
-FLASH_SR_DIR = os.path.join(os.getcwd(), "assets", "models", "FlashSR")
-PRETRAINS_DIR = os.path.join(os.getcwd(), "assets", "models", "pretrains")
+# Корень репозитория, а не текущий каталог: обучение идёт в подпроцессах с cwd = корень.
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+PREDICTORS_DIR = os.path.join(PROJECT_ROOT, "assets", "models", "predictors")
+EMBEDDERS_DIR = os.path.join(PROJECT_ROOT, "assets", "models", "embedders")
+FLASH_SR_DIR = os.path.join(PROJECT_ROOT, "assets", "models", "FlashSR")
+PRETRAINS_DIR = os.path.join(PROJECT_ROOT, "assets", "models", "pretrains")
 
 # Создаем папки, если их нет
 os.makedirs(PREDICTORS_DIR, exist_ok=True)
@@ -94,18 +97,21 @@ def download_with_progress(url, path):
     yield f"  ✓ {os.path.basename(path)} ({done // 1024 // 1024} МБ)"
 
 
-def ensure_pretrains(choice, sample_rate):
-    """Скачивает претрейн при необходимости.
+def ensure_pretrains(vocoder, choice, sample_rate):
+    """Скачивает претрейн вокодера при необходимости.
 
     Генератор: отдаёт строки для журнала, возвращает (путь G, путь D).
     Вызывать через `g, d = yield from ensure_pretrains(...)`.
     """
     rate = rate_label(sample_rate)
-    if choice not in PRETRAINS:
-        raise ValueError(f"Неизвестный претрейн: {choice}")
-    files = pretrain_files(choice, sample_rate)
+    if not has_pretrains(vocoder):
+        raise ValueError(f"У вокодера «{vocoder}» нет встроенных претрейнов — выберите «{NO_PRETRAIN}» или укажите свои G/D.")
+    if choice not in pretrain_sets(vocoder):
+        raise ValueError(f"Претрейн «{choice}» несовместим с вокодером «{vocoder}»: наборы привязаны к архитектуре генератора.")
+    files = pretrain_files(vocoder, choice, sample_rate)
     if files is None:
-        raise ValueError(f"Претрейн {choice} доступен только для {', '.join(pretrain_rates(choice))}.")
+        rates = ", ".join(pretrain_rates(vocoder, choice))
+        raise ValueError(f"Претрейн «{choice}» доступен только для {rates}.")
 
     d_file, g_file = files
     safe_name = re.sub(r"[^\w\-.]", "_", choice)

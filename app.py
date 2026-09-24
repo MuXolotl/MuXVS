@@ -23,7 +23,7 @@ import gradio as gr
 from assets.model_installer import check_and_install_models
 from assets.notebook_check import colab_check, kaggle_check
 from assets.version import __version__, __version_info__
-from gradio_ui.common import UVR_MODELS_DIR, UVR_OUTPUT_DIR
+from gradio_ui.common import UVR_MODELS_DIR, UVR_OUTPUT_DIR, model_dropdowns, refresh_models
 from gradio_ui.inference import conversion_tab
 from gradio_ui.models import models_tab
 from gradio_ui.tools import tools_tab
@@ -99,8 +99,11 @@ with gr.Blocks(
         "[GitHub](https://github.com/MuXolotl/MuXVS)",
     )
 
-    with gr.Tab("Конвертация"):
+    with gr.Tab("Конвертация") as conversion_tab_ui:
         conversion_tab(include_tts=not is_offline_mode())
+    # Модель могли загрузить или удалить мимо интерфейса — список обновляем
+    # при каждом открытии вкладки, а не только кнопкой во вкладке «Модели».
+    conversion_tab_ui.select(refresh_models, outputs=model_dropdowns(), api_name=False)
 
     with gr.Tab("Обучение"):
         training_tab()
@@ -154,7 +157,11 @@ if __name__ == "__main__":
         print("⚠️ [UVR] Импорт не удался, вкладка UVR будет отключена!")
 
     print("Запуск интерфейса MuXVS. Подождите...")
-    check_and_install_models()  # Checking and installing models
+    if is_offline_mode():
+        # В оффлайне сети заведомо нет: проверка только сыпала бы ошибками загрузки.
+        print("Оффлайн-режим: проверка и загрузка моделей пропущены.")
+    else:
+        check_and_install_models()  # Checking and installing models
 
     port = int(get_value_from_args("--port", DEFAULT_PORT))
     server = get_value_from_args("--server-name", DEFAULT_SERVER_NAME)

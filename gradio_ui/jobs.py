@@ -68,8 +68,23 @@ def request_stop() -> str:
     return "Процесс остановлен."
 
 
+def _release_inference_cache() -> None:
+    """Освобождает кэш инференса: обучающему процессу нужна вся память GPU.
+
+    Импорт ленивый — `rvc.inference.infer` тянет torch, а интерфейс запускается без него.
+    """
+    try:
+        from rvc.inference.infer import release_pipeline
+    except Exception:  # noqa: BLE001 — без torch/зависимостей выгружать нечего
+        return
+    released = release_pipeline()
+    if released:
+        print(f"[i] Модель '{released}' выгружена из памяти перед запуском задачи.", flush=True)
+
+
 def _spawn(cmd: list) -> subprocess.Popen:
     global _process
+    _release_inference_cache()
     kwargs = {
         "cwd": PROJECT_ROOT,
         "stdout": subprocess.PIPE,

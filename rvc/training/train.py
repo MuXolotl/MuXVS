@@ -25,7 +25,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-sys.path.append(os.path.join(os.getcwd()))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from rvc._library.algorithm.commons import grad_norm, slice_segments
 from rvc._library.algorithm.discriminators import MultiPeriodDiscriminator
 from rvc._library.algorithm.synthesizers import Synthesizer

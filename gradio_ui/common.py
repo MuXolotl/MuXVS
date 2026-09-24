@@ -5,12 +5,15 @@ import re
 
 import gradio as gr
 
+# Пути считаются от корня репозитория, а не от текущего каталога: обучение запускается
+# отдельными процессами с cwd = корень проекта (gradio_ui/jobs.py), поэтому интерфейс
+# должен смотреть в те же папки, откуда его ни запустили бы.
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-RVC_MODELS_DIR = os.path.join(os.getcwd(), "models", "RVC_models")
-RVC_OUTPUT_DIR = os.path.join(os.getcwd(), "output", "RVC_output")
-UVR_MODELS_DIR = os.path.join(os.getcwd(), "models", "UVR_models")
-UVR_OUTPUT_DIR = os.path.join(os.getcwd(), "output", "UVR_output")
+RVC_MODELS_DIR = os.path.join(PROJECT_ROOT, "models", "RVC_models")
+RVC_OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output", "RVC_output")
+UVR_MODELS_DIR = os.path.join(PROJECT_ROOT, "models", "UVR_models")
+UVR_OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output", "UVR_output")
 
 OUTPUT_FORMATS = ["wav", "flac", "mp3", "ogg", "m4a"]
 F0_METHODS = ["hpa-rmvpe", "rmvpe+", "rmvpe", "fcpe", "crepe", "crepe-tiny"]
@@ -84,16 +87,27 @@ def list_rvc_models() -> list:
     )
 
 
-def refresh_models() -> gr.update:
-    return gr.update(choices=list_rvc_models())
+# Списки моделей во вкладках: обновляются разом после загрузки модели,
+# при открытии вкладки и по единственной кнопке «Обновить список».
+_MODEL_DROPDOWNS = []
 
 
-def model_select():
-    """Группа выбора модели: список + кнопка обновления (классический вид)."""
+def model_dropdowns() -> list:
+    """Все созданные списки голосовых моделей (для вывода обновлений разом)."""
+    return list(_MODEL_DROPDOWNS)
+
+
+def refresh_models() -> list:
+    """Обновления для всех списков моделей; подходит как `outputs=model_dropdowns()`."""
+    choices = list_rvc_models()
+    return [gr.update(choices=choices) for _ in _MODEL_DROPDOWNS]
+
+
+def model_select() -> gr.Dropdown:
+    """Список голосовых моделей; обновляется автоматически (см. `model_dropdowns`)."""
     with gr.Group():
         model = gr.Dropdown(label="Голосовые модели:", choices=list_rvc_models())
-        refresh_btn = gr.Button("Обновить список моделей", variant="primary")
-    refresh_btn.click(refresh_models, outputs=model, api_name=False)
+    _MODEL_DROPDOWNS.append(model)
     return model
 
 

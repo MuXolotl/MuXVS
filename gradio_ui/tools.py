@@ -4,8 +4,10 @@ import os
 
 import gradio as gr
 
-UPSCALE_OUTPUT_DIR = os.path.join(os.getcwd(), "output", "Upscale_output")
-DEFAULT_SPLIT_DIR = os.path.join(os.getcwd(), "assets", "models", "pretrains")
+from gradio_ui.common import PROJECT_ROOT
+
+UPSCALE_OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output", "Upscale_output")
+DEFAULT_SPLIT_DIR = os.path.join(PROJECT_ROOT, "assets", "models", "pretrains")
 
 MODEL_INFO_KEYS = [
     ("model_name", "Модель"),
@@ -86,6 +88,13 @@ def _upscale_audio(audio_file, overlap, progress=gr.Progress(track_tqdm=True)) -
 
     os.makedirs(UPSCALE_OUTPUT_DIR, exist_ok=True)
     progress(0.1, desc="Улучшаем качество…")
+    try:
+        # FlashSR грузит свои веса на то же устройство — кэш конвертации не нужен.
+        from rvc.inference.infer import release_pipeline
+
+        release_pipeline()
+    except Exception:  # noqa: BLE001 — без torch/зависимостей выгружать нечего
+        pass
     try:
         upscale(path, UPSCALE_OUTPUT_DIR, int(overlap), Config().device)
     except Exception as error:
