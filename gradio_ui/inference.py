@@ -137,11 +137,7 @@ def _single_conversion_tab():
 
         with gr.Column(scale=2, variant="panel"):
             with gr.Column() as upload_file:
-                local_file = gr.Audio(
-                    label="Аудио",
-                    type="filepath",
-                    show_download_button=False,
-                )
+                local_file = gr.Audio(label="Аудио", type="filepath")
 
             with gr.Column(visible=False) as enter_local_file:
                 song_input = gr.Textbox(
@@ -164,7 +160,6 @@ def _single_conversion_tab():
         )
         converted_voice = gr.Audio(
             label="Преобразованный голос",
-            show_download_button=True,
             interactive=False,
             scale=9,
         )

@@ -86,11 +86,7 @@ def tts_tab():
         with gr.Column(variant="panel", scale=2):
             with gr.Column(), gr.Group():
                 autopitch, autopitch_threshold, rvc_pitch = pitch_group()
-            synth_voice = gr.Audio(
-                label="Синтезированный TTS голос",
-                show_download_button=True,
-                interactive=False,
-            )
+            synth_voice = gr.Audio(label="Синтезированный TTS голос", interactive=False)
 
     with gr.Accordion("Настройки синтеза речи", open=False), gr.Group(), gr.Row():
         tts_pitch = gr.Slider(
@@ -128,7 +124,6 @@ def tts_tab():
         )
         converted_synth_voice = gr.Audio(
             label="Преобразованный TTS голос",
-            show_download_button=True,
             interactive=False,
             scale=9,
         )
