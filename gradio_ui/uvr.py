@@ -20,7 +20,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 USE_AUTOCAST = DEVICE == "cuda"
 
 ARCHES = {
-    "Roformer": {"models": ROFORMER_MODELS, "default": "MelBand Roformer Kim | Big Beta v5e FT by Unwa"},
+    "Roformer": {"models": ROFORMER_MODELS, "default": "MelBand Roformer | Vocals by becruily"},
     "MDX23C": {"models": MDX23C_MODELS, "default": "MDX23C InstVoc HQ"},
     "MDX-NET": {"models": MDXNET_MODELS, "default": "UVR-MDX-NET Inst HQ 5"},
     "VR Arch": {"models": VR_ARCH_MODELS, "default": "1_HP-UVR"},
@@ -343,4 +343,6 @@ def uvr_tab(models_dir: str, output_dir: str):
             rename_template,
         ],
         outputs=stems,
+        show_progress_on=input_audio,
+        api_name=False,
     )
