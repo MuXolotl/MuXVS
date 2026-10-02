@@ -168,10 +168,21 @@ jobs:
           unset SSL_CERT_FILE REQUESTS_CA_BUNDLE
           pip install uv
           uv pip install --upgrade setuptools
-          uv pip install torch==2.11 torchaudio==2.11 \
-            --index-url https://download.pytorch.org/whl/cu128
+          # Install the rest first: transitive torch requirements from PyPI can
+          # otherwise replace the CUDA wheel with the CPU wheel on Windows.
           uv pip install torchcodec==0.11
           uv pip install -r requirements.txt
+          # Reinstall explicit CUDA builds last and verify the packaged runtime.
+          uv pip install --reinstall \
+            "torch==2.11.0+cu128" "torchaudio==2.11.0+cu128" \
+            --index-url https://download.pytorch.org/whl/cu128
+          python - <<'PY'
+          import torch
+          import torchaudio
+          print(f"torch={torch.__version__}; CUDA runtime={torch.version.cuda}; torchaudio={torchaudio.__version__}")
+          if torch.version.cuda != "12.8" or "+cu128" not in torchaudio.__version__:
+              raise SystemExit("CUDA build requested, but CPU/non-cu128 PyTorch was installed")
+          PY
 
       - name: Download FFmpeg
         shell: powershell
