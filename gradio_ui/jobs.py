@@ -171,7 +171,7 @@ def run_job(title: str, commands: list, prefix: str = ""):
                             if console_text:
                                 lines.append(console_text)
                                 if live and sys.stdout.isatty():
-                                    print("", flush=True)
+                                    print(flush=True)
                                 else:
                                     print(console_text, flush=True)
                             live = ""
@@ -197,7 +197,7 @@ def run_job(title: str, commands: list, prefix: str = ""):
                 lines.append(tail)
             if live:
                 if sys.stdout.isatty():
-                    print("", flush=True)
+                    print(flush=True)
                 else:
                     print(live, flush=True)
                 lines.append(live)
