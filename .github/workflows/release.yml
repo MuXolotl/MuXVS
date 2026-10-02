@@ -431,11 +431,29 @@ jobs:
 
       - name: Download FFmpeg
         run: |
-          wget -q https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
-          tar -xf ffmpeg-release-amd64-static.tar.xz
-          cp ffmpeg-*-amd64-static/ffmpeg ffmpeg-*-amd64-static/ffprobe .
-          chmod +x ffmpeg ffprobe
-          rm -rf ffmpeg-*-amd64-static*
+          set -euo pipefail
+          archive="ffmpeg-release-amd64-static.tar.xz"
+          curl --fail --location --silent --show-error \
+            --retry 3 --retry-all-errors --connect-timeout 30 \
+            --output "$archive" \
+            "https://johnvansickle.com/ffmpeg/releases/$archive"
+
+          # A proxy/server can return an HTML error page instead of the archive.
+          # Fail early with a useful diagnostic rather than a confusing tar error.
+          if ! xz -t "$archive"; then
+            echo "::error::FFmpeg download is not a valid .tar.xz archive"
+            file "$archive"
+            head -c 300 "$archive" || true
+            exit 1
+          fi
+
+          tar -xJf "$archive"
+          build_dir=$(find . -maxdepth 1 -type d -name 'ffmpeg-*-amd64-static' -print -quit)
+          test -n "$build_dir" || { echo "::error::FFmpeg archive has no expected directory"; exit 1; }
+          install -m 755 "$build_dir/ffmpeg" ./ffmpeg
+          install -m 755 "$build_dir/ffprobe" ./ffprobe
+          rm -rf "$build_dir" "$archive"
+          ./ffmpeg -version | head -n 1
 
       - name: Download RVC models
         shell: bash -el {0}
@@ -547,11 +565,29 @@ jobs:
 
       - name: Download FFmpeg
         run: |
-          wget -q https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
-          tar -xf ffmpeg-release-amd64-static.tar.xz
-          cp ffmpeg-*-amd64-static/ffmpeg ffmpeg-*-amd64-static/ffprobe .
-          chmod +x ffmpeg ffprobe
-          rm -rf ffmpeg-*-amd64-static*
+          set -euo pipefail
+          archive="ffmpeg-release-amd64-static.tar.xz"
+          curl --fail --location --silent --show-error \
+            --retry 3 --retry-all-errors --connect-timeout 30 \
+            --output "$archive" \
+            "https://johnvansickle.com/ffmpeg/releases/$archive"
+
+          # A proxy/server can return an HTML error page instead of the archive.
+          # Fail early with a useful diagnostic rather than a confusing tar error.
+          if ! xz -t "$archive"; then
+            echo "::error::FFmpeg download is not a valid .tar.xz archive"
+            file "$archive"
+            head -c 300 "$archive" || true
+            exit 1
+          fi
+
+          tar -xJf "$archive"
+          build_dir=$(find . -maxdepth 1 -type d -name 'ffmpeg-*-amd64-static' -print -quit)
+          test -n "$build_dir" || { echo "::error::FFmpeg archive has no expected directory"; exit 1; }
+          install -m 755 "$build_dir/ffmpeg" ./ffmpeg
+          install -m 755 "$build_dir/ffprobe" ./ffprobe
+          rm -rf "$build_dir" "$archive"
+          ./ffmpeg -version | head -n 1
 
       - name: Download RVC models
         shell: bash -el {0}
