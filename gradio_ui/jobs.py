@@ -20,12 +20,25 @@ TAIL_LINES = 200  # Сколько последних строк журнала 
 
 _lock = threading.Lock()
 _process = None
+_process_group_id = None
 _stop_requested = False
 
 
 def busy() -> bool:
     with _lock:
-        return _process is not None and _process.poll() is None
+        proc = _process
+        group_id = _process_group_id
+    if proc is None:
+        return False
+    if proc.poll() is None:
+        return True
+    if os.name != "nt" and group_id is not None:
+        try:
+            os.killpg(group_id, 0)
+            return True
+        except (OSError, ProcessLookupError):
+            pass
+    return False
 
 
 def command(*args) -> list:
@@ -33,15 +46,23 @@ def command(*args) -> list:
     return [sys.executable or "python", "-m", *[str(arg) for arg in args]]
 
 
-def _kill_process_tree(proc: subprocess.Popen, sig: int) -> None:
-    """Сигнал всей группе процесса (posix) или самому процессу (Windows)."""
+def _kill_process_tree(proc: subprocess.Popen, sig: int, process_group_id=None) -> None:
+    """Останавливает процесс и его потомков, даже если лидер уже завершился."""
+    if os.name == "nt":
+        # Popen.terminate() завершает только родителя; taskkill /T нужен,
+        # чтобы вместе с ним остановить multiprocessing/DataLoader workers.
+        subprocess.run(
+            ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        return
     try:
-        if os.name == "nt":
-            proc.send_signal(sig)
-        else:
-            os.killpg(os.getpgid(proc.pid), sig)
+        # Не вызывать os.getpgid(proc.pid) здесь: после выхода лидера это
+        # невозможно, хотя его дочерние процессы ещё могут оставаться живы.
+        os.killpg(process_group_id if process_group_id is not None else proc.pid, sig)
     except (OSError, ProcessLookupError):
-        # Процесс уже мёртв или группа недоступна — останавливать нечего.
         pass
 
 
@@ -51,21 +72,24 @@ def request_stop() -> str:
     with _lock:
         _stop_requested = True
         proc = _process
-    if proc is None or proc.poll() is not None:
+        process_group_id = _process_group_id
+    if proc is None:
         return "Нет запущенного процесса."
-    _kill_process_tree(proc, signal.SIGTERM)
+
+    _kill_process_tree(proc, signal.SIGTERM, process_group_id)
     try:
         proc.wait(timeout=5)
-        return "Процесс остановлен."
     except subprocess.TimeoutExpired:
         pass
-    # Процесс пережил SIGTERM (зависший ввод-вывод, игнор сигнала) — добиваем.
-    _kill_process_tree(proc, signal.SIGKILL if os.name != "nt" else signal.SIGTERM)
+
+    # Не считаем задачу остановленной лишь потому, что вышел родительский
+    # Python-процесс: воркеры DataLoader могут пережить его и держать ОЗУ.
+    _kill_process_tree(proc, signal.SIGKILL if os.name != "nt" else signal.SIGTERM, process_group_id)
     try:
         proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
-        return "Не удалось остановить процесс — убейте его вручную."
-    return "Процесс остановлен."
+        return "Не удалось остановить процесс — проверьте оставшиеся дочерние процессы."
+    return "Процесс и его дочерние процессы остановлены."
 
 
 def _release_inference_cache() -> None:
@@ -83,7 +107,7 @@ def _release_inference_cache() -> None:
 
 
 def _spawn(cmd: list) -> subprocess.Popen:
-    global _process
+    global _process, _process_group_id
     _release_inference_cache()
     kwargs = {
         "cwd": PROJECT_ROOT,
@@ -98,6 +122,7 @@ def _spawn(cmd: list) -> subprocess.Popen:
         kwargs["start_new_session"] = True
     with _lock:
         _process = subprocess.Popen(cmd, **kwargs)  # noqa: S603 — команда собрана из констант
+        _process_group_id = _process.pid if os.name != "nt" else None
         # Текстовая обёртка без трансляции \r: это живой прогресс tqdm, а не конец строки.
         _process.stdout = io.TextIOWrapper(_process.stdout, encoding="utf-8", errors="replace", newline="")
         return _process
@@ -105,7 +130,7 @@ def _spawn(cmd: list) -> subprocess.Popen:
 
 def run_job(title: str, commands: list, prefix: str = ""):
     """Генератор для кнопки запуска: выполняет команды по очереди, отдаёт журнал."""
-    global _process, _stop_requested
+    global _process, _process_group_id, _stop_requested
     if busy():
         raise gr.Error("Другая задача ещё выполняется — дождитесь её или остановите.")
 
@@ -139,9 +164,22 @@ def run_job(title: str, commands: list, prefix: str = ""):
                         text = buffer.strip()
                         buffer = ""
                         if chunk == "\n":
+                            # Jupyter/Colab не перерисовывает \r в консольной выдаче:
+                            # там печатаем завершённый tqdm-бар один раз, по LF.
+                            # В обычном TTY построчно завершаем уже обновляемый бар.
+                            console_text = live or text
+                            if console_text:
+                                lines.append(console_text)
+                                if live and sys.stdout.isatty():
+                                    print("", flush=True)
+                                else:
+                                    print(console_text, flush=True)
                             live = ""
+                        elif chunk == "\r":
                             if text:
-                                lines.append(text)
+                                live = text
+                                if sys.stdout.isatty():
+                                    print("\r" + live, end="", flush=True)
                         elif text:
                             live = text
                     else:
@@ -155,7 +193,14 @@ def run_job(title: str, commands: list, prefix: str = ""):
                     yield "\n".join([*lines, live] if live else lines)
             tail = buffer.strip()
             if tail:
+                print(tail, flush=True)
                 lines.append(tail)
+            if live:
+                if sys.stdout.isatty():
+                    print("", flush=True)
+                else:
+                    print(live, flush=True)
+                lines.append(live)
             proc.wait()
             with _lock:
                 stopped = _stop_requested
@@ -171,6 +216,7 @@ def run_job(title: str, commands: list, prefix: str = ""):
         # Флаг не сбрасываем: следующий запуск выставит его сам, читателей между запусками нет.
         with _lock:
             _process = None
+            _process_group_id = None
 
     lines.append("✓ Готово.")
     yield "\n".join(lines)

@@ -24,6 +24,7 @@ import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from rvc._library.algorithm.commons import grad_norm, slice_segments
@@ -357,7 +358,17 @@ def train_and_evaluate(hps, rank, epoch, nets, optims, train_loader, writer_eval
     acc = MetricsAccumulator()
     last_batch = None
 
-    for _, info in enumerate(train_loader):
+    progress = tqdm(
+        train_loader,
+        total=len(train_loader),
+        desc=f"{hps.model_name} ▸ Эпоха {epoch}/{hps.total_epoch}",
+        unit="батч",
+        dynamic_ncols=True,
+        leave=True,
+        disable=rank != 0,
+        file=sys.stdout,
+    )
+    for _, info in enumerate(progress):
         if device.type == "cuda":
             info = [tensor.cuda(device_id, non_blocking=True) for tensor in info]
         else:
@@ -403,6 +414,14 @@ def train_and_evaluate(hps, rank, epoch, nets, optims, train_loader, writer_eval
                 "grad/norm_g": grad_norm_g,
             },
         )
+        if rank == 0:
+            progress.set_postfix(
+                **{
+                    "loss/g/total": f"{loss_gen_all.item():.3f}",
+                    "loss/g/mel": f"{loss_mel.item():.3f}",
+                },
+                refresh=False,
+            )
 
         # Сохраняем данные последнего батча для визуализации и F0-метрики
         if rank == 0:
@@ -459,13 +478,6 @@ def train_and_evaluate(hps, rank, epoch, nets, optims, train_loader, writer_eval
             writer_eval.add_scalar(k, v, epoch)
         for k, v in image_dict.items():
             writer_eval.add_image(k, v, epoch, dataformats="HWC")
-
-    # Вывод в консоль
-    if rank == 0:
-        print(
-            f"{epoch_recorder.record()}: {hps.model_name} ▸ Эпоха {epoch}/{hps.total_epoch} (Шаг {global_step})",
-            flush=True,
-        )
 
     # Сохранение моделей
     if rank == 0:

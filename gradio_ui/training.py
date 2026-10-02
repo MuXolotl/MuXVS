@@ -357,6 +357,7 @@ def training_tab():
         with gr.Row(equal_height=True):
             train_btn = gr.Button("Запустить обучение", variant="primary")
             stop_btn = gr.Button("Завершить процесс", variant="stop")
+        stop_status = gr.Markdown("")
 
     with gr.Group():
         log = gr.Textbox(label="Журнал", lines=12, max_lines=12)
@@ -411,4 +412,4 @@ def training_tab():
         api_name=False,
     )
     board_btn.click(_open_board, inputs=[board_port, board_base_url], outputs=board_frame)
-    stop_btn.click(request_stop, outputs=log, queue=False, api_name=False)
+    stop_btn.click(request_stop, outputs=stop_status, queue=False, api_name=False)
