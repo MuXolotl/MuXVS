@@ -170,9 +170,7 @@ jobs:
           uv pip install --upgrade setuptools
           uv pip install torchcodec==0.11
           uv pip install -r requirements.txt
-          uv pip install --reinstall \
-            "torch==2.11.0+cu128" "torchaudio==2.11.0+cu128" \
-            --index-url https://download.pytorch.org/whl/cu128
+          uv pip install --reinstall "torch==2.11.0+cu128" "torchaudio==2.11.0+cu128" --index-url https://download.pytorch.org/whl/cu128
 
       - name: Download FFmpeg
         shell: powershell
@@ -295,10 +293,9 @@ jobs:
           unset SSL_CERT_FILE REQUESTS_CA_BUNDLE
           pip install uv
           uv pip install --upgrade setuptools
-          uv pip install torch==2.11 torchaudio==2.11 \
-            --index-url https://download.pytorch.org/whl/cpu
           uv pip install torchcodec==0.11
           uv pip install -r requirements.txt
+          uv pip install --reinstall torch==2.11 torchaudio==2.11 --index-url https://download.pytorch.org/whl/cpu
 
       - name: Download FFmpeg
         shell: powershell
@@ -427,9 +424,7 @@ jobs:
           pip install uv
           uv pip install --upgrade setuptools
           uv pip install -r requirements.txt
-          uv pip install --reinstall \
-            "torch==2.11.0+cu128" "torchaudio==2.11.0+cu128" "torchcodec==0.11.1+cu128" \
-            --index-url https://download.pytorch.org/whl/cu128
+          uv pip install --reinstall "torch==2.11.0+cu128" "torchaudio==2.11.0+cu128" "torchcodec==0.11.1+cu128" --index-url https://download.pytorch.org/whl/cu128
 
       - name: Download FFmpeg
         run: |
@@ -561,9 +556,8 @@ jobs:
           conda activate ./env
           pip install uv
           uv pip install --upgrade setuptools
-          uv pip install torch==2.11 torchaudio==2.11 torchcodec==0.11 \
-            --index-url https://download.pytorch.org/whl/cpu
           uv pip install -r requirements.txt
+          uv pip install --reinstall torch==2.11 torchaudio==2.11 torchcodec==0.11 --index-url https://download.pytorch.org/whl/cpu
 
       - name: Download FFmpeg
         run: |
@@ -689,8 +683,8 @@ jobs:
           conda activate ./env
           pip install uv
           uv pip install --upgrade setuptools
-          uv pip install torch==2.11 torchaudio==2.11 torchcodec==0.11
           uv pip install -r requirements.txt
+          uv pip install --reinstall torch==2.11 torchaudio==2.11 torchcodec==0.11
 
       - name: Install FFmpeg
         run: |
