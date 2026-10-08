@@ -4,14 +4,18 @@
 Секции запускаются отдельными процессами с общим живым журналом.
 """
 
+import hashlib
 import json
 import os
+import re
 import shutil
+from urllib.parse import urlsplit
 
 import gradio as gr
+import requests
 
 from assets.env_paths import require_training_logs_dir, training_logs_dir
-from assets.model_installer import ensure_pretrains
+from assets.model_installer import PRETRAINS_DIR, download_with_progress, ensure_pretrains
 from assets.notebook_check import colab_check, kaggle_check
 from assets.pretrains import NO_PRETRAIN, default_pretrain, pretrain_choices
 from gradio_ui.jobs import command, request_stop, run_job
@@ -213,8 +217,43 @@ def _check_config(model_name: str, exp_dir: str, vocoder: str, sample_rate: int)
     )
 
 
+def _url_pretrain_path(kind: str, url: str) -> str:
+    """Локальное имя для претрейна из URL: имя файла + хеш ссылки.
+
+    Хеш в имени отличает файлы с одинаковыми именами из разных ссылок,
+    поэтому скачанный раз претрейн переиспользуется без повторной загрузки.
+    """
+    name = os.path.basename(urlsplit(url).path)
+    if not name.lower().endswith(".pth"):
+        name = f"pretrain_{kind}.pth"
+    digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:8]
+    safe_stem = re.sub(r"[^\w\-.]", "_", name[: -len(".pth")])
+    return os.path.join(PRETRAINS_DIR, f"custom_{safe_stem}_{digest}_{kind}.pth")
+
+
+def _prepare_manual_pretrain(kind: str, value: str):
+    """Свой претрейн: локальный путь как есть, URL — скачивается.
+
+    Генератор: отдаёт строки журнала, возвращает локальный путь к файлу.
+    """
+    if value.startswith(("http://", "https://")):
+        local_path = _url_pretrain_path(kind, value)
+        if os.path.isfile(local_path):
+            yield f"  ✓ {os.path.basename(local_path)} уже скачан"
+            return local_path
+        yield f"⬇ Скачиваю претрейн {kind}…"
+        try:
+            yield from download_with_progress(value, local_path)
+        except (requests.RequestException, ValueError) as error:
+            raise gr.Error(f"Не удалось скачать претрейн {kind}: {error}") from error
+        return local_path
+    if not os.path.isfile(value):
+        raise gr.Error(f"Претрейн не найден: {value} — укажите существующий файл или прямую ссылку на него.")
+    return value
+
+
 def _resolve_pretrains(pretrain, pretrain_g, pretrain_d, vocoder, sample_rate, exp_dir):
-    """Пути претрейнов G/D: свои файлы, встроенный набор или ничего.
+    """Пути претрейнов G/D: свои файлы или ссылки, встроенный набор или ничего.
 
     Генератор: отдаёт строки журнала, возвращает (путь G, путь D).
     Свои файлы имеют приоритет над встроенным набором. При продолжении
@@ -225,11 +264,10 @@ def _resolve_pretrains(pretrain, pretrain_g, pretrain_d, vocoder, sample_rate, e
     if manual_g or manual_d:
         if not (manual_g and manual_d):
             raise gr.Error("Укажите оба своих претрейна (G и D) или ни одного.")
-        for path in (manual_g, manual_d):
-            if not os.path.isfile(path):
-                raise gr.Error(f"Претрейн не найден: {path}")
-        yield f"• Свои претрейны: {os.path.basename(manual_g)}, {os.path.basename(manual_d)}"
-        return manual_g, manual_d
+        resolved_g = yield from _prepare_manual_pretrain("G", manual_g)
+        resolved_d = yield from _prepare_manual_pretrain("D", manual_d)
+        yield f"• Свои претрейны: {os.path.basename(resolved_g)}, {os.path.basename(resolved_d)}"
+        return resolved_g, resolved_d
     if os.path.isfile(os.path.join(exp_dir, "checkpoint.pth")):
         yield "• Найден checkpoint.pth — обучение продолжится, претрейны не нужны."
         return None, None
@@ -349,8 +387,8 @@ def training_tab():
                     label="Претрейн",
                     scale=1,
                 )
-                pretrain_g = gr.Textbox(label="Свой претрейн G", placeholder="Путь к .pth — вместо встроенного", scale=2)
-                pretrain_d = gr.Textbox(label="Свой претрейн D", placeholder="Путь к .pth — вместо встроенного", scale=2)
+                pretrain_g = gr.Textbox(label="Свой претрейн G", placeholder="Путь или URL к .pth — вместо встроенного", scale=2)
+                pretrain_d = gr.Textbox(label="Свой претрейн D", placeholder="Путь или URL к .pth — вместо встроенного", scale=2)
             with gr.Row(equal_height=True):
                 save_to_zip = gr.Checkbox(False, label="Собрать ZIP в конце")
                 save_half = gr.Checkbox(True, label="Веса float16")
