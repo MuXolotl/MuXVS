@@ -1,5 +1,5 @@
 #!/bin/bash
-# Запуск MuXVS (Linux / macOS). Требуется ./run-MuXVS-installer.sh
+# Launch MuXVS (Linux/macOS). Requires ./run-MuXVS-installer.sh.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -7,30 +7,30 @@ cd "$(dirname "$0")"
 ENV_PYTHON="env/bin/python"
 
 if [ ! -x "$ENV_PYTHON" ]; then
-    echo "Ошибка: окружение не найдено."
-    echo "Сначала выполните './run-MuXVS-installer.sh'."
+    echo "Error: the Python environment was not found."
+    echo "Run './run-MuXVS-installer.sh' first."
     exit 1
 fi
 
 check_internet_connection() {
-    echo "Проверка подключения к интернету..."
+    echo "Checking the internet connection..."
     if curl -s --max-time 5 https://huggingface.co > /dev/null 2>&1; then
-        echo "Подключение к интернету есть."
+        echo "Internet connection is available."
         INTERNET_AVAILABLE=1
     else
-        echo "Подключение к интернету не обнаружено."
+        echo "No internet connection detected."
         INTERNET_AVAILABLE=0
     fi
     echo
 }
 
 running_interface() {
-    echo "Запуск интерфейса..."
+    echo "Starting the interface..."
     if [ "$INTERNET_AVAILABLE" -eq 1 ]; then
-        echo "Режим ONLINE..."
+        echo "Running in ONLINE mode..."
         exec "$ENV_PYTHON" app.py "$@"
     else
-        echo "Режим OFFLINE..."
+        echo "Running in OFFLINE mode..."
         exec "$ENV_PYTHON" app.py --offline "$@"
     fi
 }

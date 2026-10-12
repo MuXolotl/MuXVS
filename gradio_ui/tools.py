@@ -106,7 +106,7 @@ def _upscale_audio(audio_file, overlap, progress=gr.Progress(track_tqdm=True)) -
 
 
 def tools_tab():
-    with gr.Accordion("Проверка модели (.pth)", open=True):
+    with gr.Accordion("Проверка модели (.pth)", open=False):
         model_file = gr.File(label="Файл модели", file_types=[".pth"], file_count="single")
         inspect_btn = gr.Button("Проверить", variant="primary")
         model_info = gr.Textbox(label="Сведения", lines=10, interactive=False)

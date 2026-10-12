@@ -28,19 +28,19 @@ if errorlevel 1 goto :error
 
 cls
 echo.
-echo MuXVS установлен успешно!
-echo Для запуска MuXVS выполните 'run-MuXVS.bat'.
+echo MuXVS installed successfully!
+echo To start MuXVS, run 'run-MuXVS.bat'.
 echo.
 pause
 exit /b 0
 
 :install_miniconda
 if exist "%MINICONDA_DIR%\_conda.exe" (
-    echo Miniconda уже установлен - пропускаю.
+    echo Miniconda is already installed. Skipping.
     exit /b 0
 )
 
-echo Miniconda не найден. Скачиваю и устанавливаю...
+echo Miniconda was not found. Downloading and installing...
 powershell -NoProfile -Command "& {Invoke-WebRequest -Uri '%MINICONDA_URL%' -OutFile 'miniconda.exe'}"
 if not exist "miniconda.exe" goto :download_error
 
@@ -48,35 +48,35 @@ start /wait "" miniconda.exe /InstallationType=JustMe /RegisterPython=0 /S /D=%M
 if errorlevel 1 goto :install_error
 
 del miniconda.exe
-echo Miniconda установлен.
+echo Miniconda installed.
 echo.
 exit /b 0
 
 :create_conda_env
 cls
 set "FORCE_CREATE="
-if exist "%ENV_DIR%\python.exe" (
-    for /f %%v in ('"%ENV_DIR%\python.exe" -c "import sys;print(f'{sys.version_info[0]}.{sys.version_info[1]}')"') do set "ENV_PY=%%v"
-    if "!ENV_PY!"=="%PYTHON_VERSION%" (
-        echo Окружение с Python %PYTHON_VERSION% уже существует - пропускаю.
-        echo.
-        exit /b 0
-    )
-    echo Окружение создано для Python !ENV_PY! - пересоздаю под Python %PYTHON_VERSION%...
+if not exist "%ENV_DIR%\python.exe" goto :create_conda_env_new
+for /f %%v in ('"%ENV_DIR%\python.exe" -c "import sys;print(f'{sys.version_info[0]}.{sys.version_info[1]}')"') do set "ENV_PY=%%v"
+if "!ENV_PY!"=="%PYTHON_VERSION%" (
+    echo A Python %PYTHON_VERSION% environment already exists. Skipping.
     echo.
-    set "FORCE_CREATE=--force"
+    exit /b 0
 )
+echo The environment uses Python !ENV_PY!; recreating it for Python %PYTHON_VERSION%...
+echo.
+set "FORCE_CREATE=--force"
 
-echo Создаю Python-окружение (python=%PYTHON_VERSION%)...
+:create_conda_env_new
+echo Creating Python environment (Python %PYTHON_VERSION%)...
 call "%MINICONDA_DIR%\_conda.exe" create --no-shortcuts -y -k --prefix "%ENV_DIR%" python=%PYTHON_VERSION% !FORCE_CREATE!
 if errorlevel 1 goto :error
-echo Окружение создано.
+echo Environment created.
 echo.
 exit /b 0
 
 :install_dependencies
 cls
-echo Устанавливаю зависимости (это может занять какое-то время)...
+echo Installing dependencies. This may take a while...
 
 set "TORCH_BACKEND=cpu"
 set "NVIDIA_GPUS=0"
@@ -89,10 +89,10 @@ echo  PyTorch: %TORCH_BACKEND%
 if errorlevel 1 goto :error
 
 if /i "%TORCH_BACKEND%"=="cpu" (
-    echo Устанавливаю PyTorch (CPU)...
+    echo Installing PyTorch (CPU)...
     "%ENV_DIR%\python.exe" -m pip install torch==2.11 torchaudio==2.11
 ) else (
-    echo Устанавливаю PyTorch (CUDA)...
+    echo Installing PyTorch (CUDA)...
     "%ENV_DIR%\python.exe" -m pip install torch==2.11 torchaudio==2.11 --index-url https://download.pytorch.org/whl/cu128
 )
 if errorlevel 1 goto :error
@@ -103,48 +103,48 @@ if errorlevel 1 goto :error
 "%ENV_DIR%\python.exe" -m pip install -r "%PRINCIPAL%\requirements.txt"
 if errorlevel 1 goto :error
 
-echo Зависимости установлены.
+echo Dependencies installed.
 echo.
 exit /b 0
 
 :download_ffmpeg
 cls
-echo Проверяю ffmpeg и ffprobe...
+echo Checking for ffmpeg and ffprobe...
 if exist "%PRINCIPAL%\ffmpeg.exe" (
     if exist "%PRINCIPAL%\ffprobe.exe" (
-        echo ffmpeg и ffprobe уже есть - пропускаю.
+        echo ffmpeg and ffprobe are already installed. Skipping.
         exit /b 0
     )
 )
 
-echo Скачиваю ffmpeg и ffprobe...
+echo Downloading ffmpeg and ffprobe...
 powershell -NoProfile -Command "& {Invoke-WebRequest -Uri 'https://huggingface.co/Politrees/RVC_resources/resolve/main/tools/ffmpeg/ffmpeg.exe?download=true' -OutFile 'ffmpeg.exe'}"
 if not exist "ffmpeg.exe" goto :download_error
 
 powershell -NoProfile -Command "& {Invoke-WebRequest -Uri 'https://huggingface.co/Politrees/RVC_resources/resolve/main/tools/ffmpeg/ffprobe.exe?download=true' -OutFile 'ffprobe.exe'}"
 if not exist "ffprobe.exe" goto :download_error
 
-echo ffmpeg и ffprobe скачаны.
+echo ffmpeg and ffprobe downloaded.
 echo.
 exit /b 0
 
 :verify_installation
 cls
-echo Проверяю установку...
+echo Checking the installation...
 "%ENV_DIR%\python.exe" -c "import torch, numpy, scipy, sklearn, librosa, soundfile, gradio, faiss, omegaconf, edge_tts, gdown; from FlashSR.FlashSR import FlashSR; from TorchJaekwon.Util.UtilAudio import UtilAudio"
 if errorlevel 1 goto :verify_error
-echo Все пакеты на месте.
+echo All packages are available.
 echo.
 
 "%ENV_DIR%\python.exe" -c "import torch; print('CUDA_OK' if torch.cuda.is_available() else 'CUDA_NO')" | findstr /C:"CUDA_OK" >nul
 if %errorlevel% equ 0 (
-    echo CUDA доступна - преобразование голоса будет работать на GPU.
+    echo CUDA is available; voice conversion will use the GPU.
 ) else (
     if /i not "%TORCH_BACKEND%"=="cpu" (
-        echo ВНИМАНИЕ: CUDA недоступна, хотя видеокарта NVIDIA обнаружена.
-        echo   Обновите драйвер с https://www.nvidia.com
+        echo WARNING: CUDA is unavailable, although an NVIDIA GPU was detected.
+        echo   Update the driver from https://www.nvidia.com
     ) else (
-        echo Программа будет работать на CPU (значительно медленнее).
+        echo The application will run on the CPU (much slower).
     )
 )
 echo.
@@ -152,23 +152,23 @@ exit /b 0
 
 :verify_error
 echo.
-echo Не удалось импортировать некоторые пакеты.
-echo Повторите запуск инсталлятора.
+echo Could not import some packages.
+echo Run the installer again.
 pause
 exit /b 1
 
 :download_error
 echo.
-echo Ошибка скачивания. Проверьте подключение к интернету и повторите.
+echo Download failed. Check your internet connection and try again.
 goto :error
 
 :install_error
 echo.
-echo Не удалось установить Miniconda.
+echo Could not install Miniconda.
 goto :error
 
 :error
 echo.
-echo Во время установки произошла ошибка. Подробности - в выводе выше.
+echo An installation error occurred. See the output above for details.
 pause
 exit /b 1

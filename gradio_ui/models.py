@@ -80,7 +80,7 @@ def models_tab(offline: bool):
     refresh_btn.click(refresh_models, outputs=model_dropdowns(), api_name=False)
 
     if not offline:
-        with gr.Accordion("По ссылке (ZIP)", open=True):
+        with gr.Accordion("По ссылке (ZIP)", open=False):
             gr.Markdown("HuggingFace · Pixeldrain · Google Drive · Mega · Яндекс Диск · Dropbox")
             with gr.Row():
                 zip_link = gr.Textbox(label="Ссылка", scale=3)
