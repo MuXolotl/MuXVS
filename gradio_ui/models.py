@@ -72,8 +72,6 @@ def _toggle_custom_embedder(enabled: bool):
 
 
 def models_tab(offline: bool):
-    message = gr.Textbox(label="Результат", interactive=False)
-
     # Единственная кнопка обновления списка: остальные вкладки подхватывают
     # изменения сами — после загрузки модели и при открытии вкладки.
     with gr.Group(), gr.Row(equal_height=True):
@@ -88,22 +86,12 @@ def models_tab(offline: bool):
                 zip_link = gr.Textbox(label="Ссылка", scale=3)
                 url_name = gr.Textbox(label="Имя модели", scale=2)
             url_btn = gr.Button("Скачать", variant="primary")
-            url_btn.click(_download_from_url, inputs=[zip_link, url_name], outputs=message).then(
-                refresh_models,
-                outputs=model_dropdowns(),
-                api_name=False,
-            )
 
     with gr.Accordion("ZIP-файл", open=False):
         with gr.Row():
             zip_file = gr.File(label="ZIP", file_types=[".zip"], file_count="single", scale=3)
             zip_name = gr.Textbox(label="Имя модели", scale=2)
         zip_btn = gr.Button("Загрузить", variant="primary")
-        zip_btn.click(_upload_zip, inputs=[zip_file, zip_name], outputs=message).then(
-            refresh_models,
-            outputs=model_dropdowns(),
-            api_name=False,
-        )
 
     with gr.Accordion("Файлы .pth + .index", open=False):
         with gr.Row():
@@ -111,11 +99,6 @@ def models_tab(offline: bool):
             index_file = gr.File(label=".index", file_types=[".index"], file_count="single")
             files_name = gr.Textbox(label="Имя модели")
         files_btn = gr.Button("Загрузить", variant="primary")
-        files_btn.click(_upload_files, inputs=[pth_file, index_file, files_name], outputs=message).then(
-            refresh_models,
-            outputs=model_dropdowns(),
-            api_name=False,
-        )
 
     if not offline:
         with gr.Accordion("Эмбеддер", open=False):
@@ -131,4 +114,25 @@ def models_tab(offline: bool):
                 outputs=[custom_url, embedder_drop],
                 api_name=False,
             )
-            embedder_btn.click(_install_embedder, inputs=[embedder_drop, custom_url], outputs=message)
+
+    # Показываем результат после всех полей и кнопок, чтобы его не путали с URL.
+    message = gr.Textbox(label="Результат", interactive=False)
+
+    if not offline:
+        url_btn.click(_download_from_url, inputs=[zip_link, url_name], outputs=message).then(
+            refresh_models,
+            outputs=model_dropdowns(),
+            api_name=False,
+        )
+    zip_btn.click(_upload_zip, inputs=[zip_file, zip_name], outputs=message).then(
+        refresh_models,
+        outputs=model_dropdowns(),
+        api_name=False,
+    )
+    files_btn.click(_upload_files, inputs=[pth_file, index_file, files_name], outputs=message).then(
+        refresh_models,
+        outputs=model_dropdowns(),
+        api_name=False,
+    )
+    if not offline:
+        embedder_btn.click(_install_embedder, inputs=[embedder_drop, custom_url], outputs=message)
