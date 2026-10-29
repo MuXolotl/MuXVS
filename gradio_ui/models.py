@@ -88,16 +88,15 @@ def models_tab(offline: bool):
             url_btn = gr.Button("Скачать", variant="primary")
 
     with gr.Accordion("ZIP-файл", open=False):
-        with gr.Row():
-            zip_file = gr.File(label="ZIP", file_types=[".zip"], file_count="single", scale=3)
-            zip_name = gr.Textbox(label="Имя модели", scale=2)
+        zip_file = gr.File(label="ZIP", file_types=[".zip"], file_count="single", scale=3)
+        zip_name = gr.Textbox(label="Имя модели", scale=2)
         zip_btn = gr.Button("Загрузить", variant="primary")
 
     with gr.Accordion("Файлы .pth + .index", open=False):
         with gr.Row():
             pth_file = gr.File(label=".pth", file_types=[".pth"], file_count="single")
             index_file = gr.File(label=".index", file_types=[".index"], file_count="single")
-            files_name = gr.Textbox(label="Имя модели")
+        files_name = gr.Textbox(label="Имя модели")
         files_btn = gr.Button("Загрузить", variant="primary")
 
     if not offline:
